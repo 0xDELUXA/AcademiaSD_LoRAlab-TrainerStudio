@@ -63,6 +63,8 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 
 **Linux:** ya tiene soporte para Linux. Cada `.bat` tiene su `.sh` equivalente; la instalación y el uso están en [docs/Linux.md](docs/Linux.md). Gracias a **[Jonathan Hecl (@jonathanhecl)](https://github.com/jonathanhecl)** por aportarlo.
 
+**LR Scheduler:** debajo del learning rate puedes elegir cómo cambia durante el entrenamiento: `cosine` (por defecto: sube durante el warmup y baja suavemente hasta el 10%), `constant` (el mismo LR de principio a fin, como el entrenador de Civitai), `constant_with_warmup`, `linear` o `cosine_with_restarts` (repite la curva tantas veces como indique *Ciclos*). Si no lo tocas, cada entrenador funciona igual que antes. Detalles en la sección *LR scheduler*.
+
 **Idiomas:** la interfaz y los mensajes de consola están en inglés, español, alemán, francés, portugués, italiano, japonés y coreano. Elige el idioma en el selector **🌍 Language** de la parte inferior del lanzador y pulsa **💾 Save settings**; por defecto está en inglés. Los prompts de los captions siguen siempre en inglés, que es lo que entienden los modelos. Detalles en la sección *Languages*.
 
 > ⚠️ **Sobre los valores por defecto:** las pruebas se han hecho para comprobar que cada entrenamiento funciona, no para buscar el mejor rendimiento ni la mejor calidad. Haz tus propias pruebas con distintas configuraciones (pasos, learning rate, rank, resolución, captions) para mejorar la calidad de tus LoRAs.
@@ -183,6 +185,22 @@ Under **LoRA Rank / Alpha**, the trainers have extra checkboxes. They change **h
 | **LoRA+** | LoRA+ | Reaching the same result in fewer steps | Same LR; check the intermediate checkpoints, and lower the LR if it burns early | `_plus` |
 | **rsLoRA + LoRA+** | both | The two together: stable high ranks that also learn faster. They do not conflict: one changes the scaling, the other the optimizer | Rank 32, the alpha rsLoRA sets, and an LR about 2× lower than usual, because both make the training stronger | `_rs_plus` |
 | **LoKr** | LoKr (+ Factor) | Characters and objects with small datasets, or when file size matters | Rank 8, alpha 8, factor 16, same LR as LoRA; factor 8 or a higher LR if it learns too little | `_lokr` |
+
+### LR scheduler
+
+Every trainer has an **LR Scheduler** selector under the learning rate, with **Warmup Steps** (and **Cycles** for restarts). The default keeps each trainer's previous behaviour: `cosine` everywhere, `constant_with_warmup` on MiniMax H3.
+
+| Scheduler | What it does |
+| :--- | :--- |
+| `cosine` | Rises during the warmup, then eases down to 10% of the LR |
+| `constant` | The same LR from the first step to the last (no warmup), like the Civitai trainer |
+| `constant_with_warmup` | Rises during the warmup, then stays at the LR |
+| `linear` | Rises during the warmup, then goes down in a straight line to 10% |
+| `cosine_with_restarts` | Like `cosine`, but climbs back up and repeats the curve *Cycles* times; for long trainings |
+
+With `constant` every checkpoint is trained equally hard, so stopping early gives the same result as a shorter training; the decaying ones usually leave cleaner final checkpoints.
+
+The chosen scheduler is shown in the console summary when training starts and saved in the LoRA metadata (`ss_lr_scheduler`). It is read again on every start, so a resumed training continues with whatever is selected.
 
 ---
 

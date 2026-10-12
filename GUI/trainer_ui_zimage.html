@@ -411,6 +411,27 @@
                     </div>
 
                     <div class="form-row">
+                        <div class="form-group" title="How the learning rate changes during training. cosine: rises during the warmup, then eases down to 10% of the LR. constant: the same LR from the first step to the last. constant_with_warmup: rises during the warmup, then stays. linear: rises during the warmup, then goes down in a straight line to 10%. cosine_with_restarts: like cosine, but it climbs back up and repeats the curve as many times as Cycles.">
+                            <label>LR Scheduler:</label>
+                            <select id="train_lr_scheduler" class="no-i18n" onchange="updateLrSchedulerFields()">
+                                <option value="cosine" selected>cosine</option>
+                                <option value="constant">constant</option>
+                                <option value="constant_with_warmup">constant_with_warmup</option>
+                                <option value="linear">linear</option>
+                                <option value="cosine_with_restarts">cosine_with_restarts</option>
+                            </select>
+                        </div>
+                        <div class="form-group" title="Steps in which the LR rises from 0 to its value at the start of the training. Ignored with constant.">
+                            <label>Warmup Steps:</label>
+                            <input type="number" id="train_warmup_steps" value="50" min="0">
+                        </div>
+                        <div class="form-group" id="train_lr_cycles_group" title="How many times cosine_with_restarts repeats the cosine curve." style="display: none;">
+                            <label>Cycles:</label>
+                            <input type="number" id="train_lr_cycles" value="3" min="1">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
                         <div class="form-group">
                             <label>LoRA Rank (R):</label>
                             <input type="number" id="train_lora_rank" value="8">
@@ -861,6 +882,10 @@
                     const t = data.train;
                     if (t.total_steps) document.getElementById('train_total_steps').value = t.total_steps;
                     if (t.lr) document.getElementById('train_lr').value = t.lr;
+                    if (t.lr_scheduler) document.getElementById('train_lr_scheduler').value = t.lr_scheduler;
+                    if (t.warmup_steps !== undefined) document.getElementById('train_warmup_steps').value = t.warmup_steps;
+                    if (t.lr_cycles) document.getElementById('train_lr_cycles').value = t.lr_cycles;
+                    updateLrSchedulerFields();
                     if (t.lora_rank) document.getElementById('train_lora_rank').value = t.lora_rank;
                     if (t.lora_alpha) document.getElementById('train_lora_alpha').value = t.lora_alpha;
                     if (t.lora_targets) document.getElementById('train_lora_targets').value = t.lora_targets;
@@ -926,6 +951,10 @@
                     
                     if (data.total_steps !== undefined) document.getElementById('train_total_steps').value = data.total_steps;
                     if (data.lr !== undefined) document.getElementById('train_lr').value = data.lr;
+                    if (data.lr_scheduler) document.getElementById('train_lr_scheduler').value = data.lr_scheduler;
+                    if (data.warmup_steps !== undefined) document.getElementById('train_warmup_steps').value = data.warmup_steps;
+                    if (data.lr_cycles) document.getElementById('train_lr_cycles').value = data.lr_cycles;
+                    updateLrSchedulerFields();
                     if (data.lora_rank !== undefined) document.getElementById('train_lora_rank').value = data.lora_rank;
                     if (data.lora_alpha !== undefined) document.getElementById('train_lora_alpha').value = data.lora_alpha;
                     if (data.lora_targets !== undefined) document.getElementById('train_lora_targets').value = data.lora_targets;
@@ -1063,6 +1092,12 @@
             updateFinalNameSuffix();
         }
 
+        function updateLrSchedulerFields() {
+            const sched = document.getElementById('train_lr_scheduler').value;
+            document.getElementById('train_warmup_steps').disabled = sched === 'constant';
+            document.getElementById('train_lr_cycles_group').style.display = sched === 'cosine_with_restarts' ? '' : 'none';
+        }
+
         async function saveTrainSettings() {
             const proj = document.getElementById('project_name').value.trim();
             const trainData = {
@@ -1073,6 +1108,9 @@
                 output_dir: document.getElementById('train_output_dir').value,
                 total_steps: parseInt(document.getElementById('train_total_steps').value),
                 lr: parseFloat(document.getElementById('train_lr').value),
+                lr_scheduler: document.getElementById('train_lr_scheduler').value,
+                warmup_steps: parseInt(document.getElementById('train_warmup_steps').value) || 0,
+                lr_cycles: parseInt(document.getElementById('train_lr_cycles').value) || 3,
                 lora_rank: parseInt(document.getElementById('train_lora_rank').value),
                 lora_alpha: parseInt(document.getElementById('train_lora_alpha').value),
                 lora_targets: document.getElementById('train_lora_targets').value,

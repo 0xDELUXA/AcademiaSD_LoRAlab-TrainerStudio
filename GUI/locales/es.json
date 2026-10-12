@@ -1067,5 +1067,10 @@
   "Automatic": "Automática",
   "Only from the training PC.": "Solo desde el PC que entrena.",
   "GPU not found: {name}": "GPU no encontrada: {name}",
-  "The GPU applies to the trainers opened from now on.": "La GPU se aplica a los entrenadores que se abran a partir de ahora."
+  "The GPU applies to the trainers opened from now on.": "La GPU se aplica a los entrenadores que se abran a partir de ahora.",
+  "How the learning rate changes during training. cosine: rises during the warmup, then eases down to 10% of the LR. constant: the same LR from the first step to the last. constant_with_warmup: rises during the warmup, then stays. linear: rises during the warmup, then goes down in a straight line to 10%. cosine_with_restarts: like cosine, but it climbs back up and repeats the curve as many times as Cycles.": "Cómo cambia el learning rate durante el entrenamiento. cosine: sube durante el warmup y luego baja suavemente hasta el 10% del LR. constant: el mismo LR del primer paso al último. constant_with_warmup: sube durante el warmup y luego se mantiene. linear: sube durante el warmup y luego baja en línea recta hasta el 10%. cosine_with_restarts: como cosine, pero vuelve a subir y repite la curva tantas veces como indique Ciclos.",
+  "Warmup Steps": "Pasos de warmup",
+  "Steps in which the LR rises from 0 to its value at the start of the training. Ignored with constant.": "Pasos en los que el LR sube de 0 a su valor al empezar el entrenamiento. Se ignora con constant.",
+  "Cycles": "Ciclos",
+  "How many times cosine_with_restarts repeats the cosine curve.": "Cuántas veces repite cosine_with_restarts la curva del coseno."
 }

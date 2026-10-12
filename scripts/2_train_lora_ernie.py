@@ -34,7 +34,7 @@ MODEL=cfg.get("model_id","Ernie-NF4"); PROJECT=cfg.get("project_name","").strip(
 CACHE=f"./cached_data_ernie_{PROJECT}" if PROJECT else cfg.get("cache_dir","./cached_data_ernie")
 OUT=f"./ernie_lora_output_{PROJECT}" if PROJECT else cfg.get("output_dir","./ernie_lora_output")
 STEPS=int(cfg.get("total_steps",1000)); BATCH=int(cfg.get("batch_size",1)); ACCUM=max(1,int(cfg.get("grad_accum_steps",4)))
-LR=float(cfg.get("lr",3e-4)); WARMUP=int(cfg.get("warmup_steps",100)); MIN_LR_RATIO=float(cfg.get("min_lr_ratio",.1)); SAVE_EVERY=int(cfg.get("save_every",100))
+LR=float(cfg.get("lr",3e-4)); WARMUP=int(cfg.get("warmup_steps",100)); MIN_LR_RATIO=float(cfg.get("min_lr_ratio",.1)); LR_SCHEDULER=cfg.get("lr_scheduler","cosine"); LR_CYCLES=int(cfg.get("lr_cycles",3)); SAVE_EVERY=int(cfg.get("save_every",100))
 RANK=int(cfg.get("lora_rank",16)); ALPHA=float(cfg.get("lora_alpha",16)); USE_RSLORA=bool(cfg.get("use_rslora",False)); USE_LORAPLUS=bool(cfg.get("use_loraplus",False)); LORAPLUS_RATIO=float(cfg.get("loraplus_ratio",16)); USE_LOKR=bool(cfg.get("use_lokr",False)); LOKR_FACTOR=max(1,int(cfg.get("lokr_factor",16)))
 LORA_TARGETS="all" if cfg.get("lora_targets","blocks")=="all" else "blocks"
 WEIGHT_DECAY=float(cfg.get("weight_decay",0)); MAX_GRAD_NORM=float(cfg.get("max_grad_norm",1.0)); PREVIEW_EVERY=int(cfg.get("preview_every",0))
@@ -76,7 +76,7 @@ def export(model,path,step):
         state[key]=v.to(torch.bfloat16).cpu().contiguous()
         if key.endswith(".lora_A.weight"): state[key[:-len(".lora_A.weight")]+".alpha"]=torch.tensor(float(lora_options.export_alpha(ALPHA,RANK,USE_RSLORA)),dtype=torch.float32)
     trigger=TRIGGER or ""
-    meta={"format":"pt","trained_with":"AcademiaSD LoRAlab ERNIE-Image","ss_sd_model_name":"baidu/ERNIE-Image","ss_base_model_version":"ERNIE-Image","ss_network_module":"peft.LoraModel","ss_network_dim":str(RANK),"ss_network_alpha":str(lora_options.export_alpha(ALPHA,RANK,USE_RSLORA)),"ss_steps":str(step),"ss_max_train_steps":str(STEPS),"ss_learning_rate":str(LR),"ss_mixed_precision":"bf16","ss_optimizer":"AdamW","ss_weight_decay":str(WEIGHT_DECAY)}
+    meta={"format":"pt","trained_with":"AcademiaSD LoRAlab ERNIE-Image","ss_sd_model_name":"baidu/ERNIE-Image","ss_base_model_version":"ERNIE-Image","ss_network_module":"peft.LoraModel","ss_lr_scheduler":LR_SCHEDULER,"ss_network_dim":str(RANK),"ss_network_alpha":str(lora_options.export_alpha(ALPHA,RANK,USE_RSLORA)),"ss_steps":str(step),"ss_max_train_steps":str(STEPS),"ss_learning_rate":str(LR),"ss_mixed_precision":"bf16","ss_optimizer":"AdamW","ss_weight_decay":str(WEIGHT_DECAY)}
     if trigger: meta["trigger_word"]=trigger; meta["ss_tag_frequency"]=json.dumps({"dataset":{trigger:1}})
     save_file(state,path,metadata=meta)
 
@@ -161,9 +161,7 @@ def main():
         optimizer=torch.optim.AdamW([{"params":a,"lr_mult":1.0},{"params":b,"lr_mult":LORAPLUS_RATIO}],lr=LR,weight_decay=WEIGHT_DECAY)
     else: optimizer=torch.optim.AdamW(trainable,lr=LR,weight_decay=WEIGHT_DECAY)
     for p in trainable: p.data=p.data.float()
-    def lr_at(s):
-        if s<WARMUP: return LR*s/max(WARMUP,1)
-        q=(s-WARMUP)/max(1,STEPS-WARMUP); return LR*(MIN_LR_RATIO+(1-MIN_LR_RATIO)*.5*(1+math.cos(math.pi*min(1,q))))
+    def lr_at(s): return LR*lora_options.lr_factor(LR_SCHEDULER,s,STEPS,WARMUP,MIN_LR_RATIO,LR_CYCLES)
     scheduler=FlowMatchEulerDiscreteScheduler.from_pretrained(MODEL,subfolder="scheduler")
     cache={}; buckets=defaultdict(list)
     for f in os.listdir(CACHE):
@@ -198,7 +196,7 @@ def main():
         try: signal.signal(sig,stop)
         except Exception: pass
     ordered=list(cache)
-    print(f"ERNIE text-to-image training: {len(ordered)} images, {len(buckets)} buckets, {STEPS} steps",flush=True)
+    print(f"ERNIE text-to-image training: {len(ordered)} images, {len(buckets)} buckets, {STEPS} steps, LR scheduler {lora_options.lr_scheduler_label(LR_SCHEDULER,WARMUP,LR_CYCLES)}",flush=True)
     model.train()
     running_loss=t_step_avg=grad_norm=0.0; start_step=step; last_step=step; live_mtime=None
     while step<STEPS:

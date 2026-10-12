@@ -865,7 +865,7 @@ Most settings live in the `DEFAULTS` dictionary at the top of each script, docum
 | :--- | :--- | :--- |
 | `lora_dtype` | `fp32` | fp32 master weights + fp32 Adam state. Do not lower. |
 | `optimizer_type` | `adamw` | `adamw8bit` leaves the face soft on H3. |
-| `lr_schedule` | `flat` | A cosine decay spends half the movement budget before the LoRA arrives anywhere. |
+| `lr_scheduler` | `constant_with_warmup` | A cosine decay spends half the movement budget before the LoRA arrives anywhere. |
 | `caption_dropout` | `0.05` | Forces identity into the weights, not into caption correlation. |
 | `nf4_cpu_home` | `True` | Reuses each block's CPU-side bytes instead of copying them back from the GPU. Halves the step time. Safe because NF4 weights are frozen; set `False` only to rule it out while debugging. |
 | `park_mode` | `auto` | Where parked blocks live: `ram`, `disk`, or `auto` (RAM until `ram_limit_gb` would be crossed). |

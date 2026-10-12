@@ -54,6 +54,7 @@ from safetensors import safe_open
 from safetensors.torch import save_file, load_file
 from PIL import Image
 from i18n import t
+import lora_options
 
 # La GUI busca "<Paso> N/Total" en la consola para saber por qué paso va.
 STEP_WORD = t("Step")
@@ -92,6 +93,8 @@ DEFAULTS = {
     "lr": 1e-4,
     "min_lr_ratio": 0.1,
     "warmup_steps": 100,
+    "lr_scheduler": "cosine",
+    "lr_cycles": 3,
 
     "lora_rank": 32,
     "lora_alpha": 32,
@@ -189,6 +192,8 @@ GRAD_ACCUM_STEPS = int(cfg_get("grad_accum_steps", DEFAULTS["grad_accum_steps"])
 LR = float(cfg_get("lr", DEFAULTS["lr"]))
 MIN_LR_RATIO = float(cfg_get("min_lr_ratio", DEFAULTS["min_lr_ratio"]))
 WARMUP_STEPS = int(cfg_get("warmup_steps", DEFAULTS["warmup_steps"]))
+LR_SCHEDULER = str(cfg_get("lr_scheduler", DEFAULTS["lr_scheduler"]))
+LR_CYCLES = int(cfg_get("lr_cycles", DEFAULTS["lr_cycles"]))
 
 LORA_RANK = int(cfg_get("lora_rank", DEFAULTS["lora_rank"]))
 LORA_ALPHA = int(cfg_get("lora_alpha", DEFAULTS["lora_alpha"]))
@@ -270,6 +275,7 @@ print(f"  {t('Cache Dir'):<28}: {CACHE_DIR}")
 print(f"  {t('Output Dir'):<28}: {OUTPUT_DIR}")
 print(f"  {t('Total Steps'):<28}: {TOTAL_STEPS}")
 print(f"  {t('Learning Rate'):<28}: {LR}")
+print(f"  {t('LR Scheduler'):<28}: {lora_options.lr_scheduler_label(LR_SCHEDULER, WARMUP_STEPS, LR_CYCLES)}")
 print("  LoRA Rank/Alpha             : {}/{}".format(LORA_RANK, LORA_ALPHA))
 print("  Batch / Grad Accum          : {}/{}".format(BATCH_SIZE, GRAD_ACCUM_STEPS))
 print("  Max Text Tokens             : {}".format(MAX_TEXT_TOKENS))
@@ -1407,7 +1413,7 @@ def build_lora_metadata(step):
         "ss_network_dim": LORA_RANK,
         "ss_network_alpha": LORA_ALPHA,
         "ss_learning_rate": LR,
-        "ss_lr_scheduler": "cosine_with_warmup",
+        "ss_lr_scheduler": LR_SCHEDULER,
         "ss_lr_warmup_steps": WARMUP_STEPS,
         "ss_max_train_steps": TOTAL_STEPS,
         "ss_steps": step,
@@ -2720,17 +2726,7 @@ def train_ltx23():
     # LR
     # ------------------------------------------------------------
     def lr_at(step):
-        if step < WARMUP_STEPS:
-            return LR * step / max(1, WARMUP_STEPS)
-
-        progress = (step - WARMUP_STEPS) / max(1, TOTAL_STEPS - WARMUP_STEPS)
-
-        return LR * (
-            MIN_LR_RATIO
-            + (1 - MIN_LR_RATIO)
-            * 0.5
-            * (1 + math.cos(math.pi * progress))
-        )
+        return LR * lora_options.lr_factor(LR_SCHEDULER, step, TOTAL_STEPS, WARMUP_STEPS, MIN_LR_RATIO, LR_CYCLES)
 
     # ------------------------------------------------------------
     # Seed

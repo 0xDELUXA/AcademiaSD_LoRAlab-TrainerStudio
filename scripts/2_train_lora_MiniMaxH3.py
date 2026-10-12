@@ -89,6 +89,7 @@ ACTIVATION_OFFLOAD_ACTIVE = False
 
 import psutil
 from i18n import t
+import lora_options
 
 # La GUI busca "<Paso> N/Total" en la consola para saber por qué paso va.
 STEP_WORD = t("Step")
@@ -140,16 +141,17 @@ DEFAULTS = {
 
     "lr": 2e-4,
 
-    # "flat" = LR constante tras el warmup. "cosine" = decaimiento a min_lr_ratio.
+    # "constant_with_warmup" = LR constante tras el warmup. "cosine" = decaimiento a min_lr_ratio.
     # El coseno a 0.1 solo deja pasar un 55% del movimiento total que permitiria un
     # LR plano, y el LoRA de referencia se mueve 5,7x mas que el nuestro. El preset
-    # que funciona en otro trainer de esta familia es explicitamente "flat 2e-4 sin
+    # que funciona en otro trainer de esta familia es explicitamente "constante 2e-4 sin
     # warmup". Para un LoRA de identidad que arranca en cero, decaer el LR antes de
     # haber llegado a ningun sitio es tirar la mitad del presupuesto.
-    # "flat" keeps LR constant after warmup. Cosine-to-0.1 only delivers 55% of the
+    # "constant_with_warmup" keeps LR constant after warmup. Cosine-to-0.1 only delivers 55% of the
     # total movement a flat schedule would, and our LoRA moves 5.7x less than the
     # reference one.
-    "lr_schedule": "flat",
+    "lr_scheduler": "constant_with_warmup",
+    "lr_cycles": 3,
     "min_lr_ratio": 0.1,
     # Warmup en ACTUALIZACIONES del optimizador (ver lr_at()).
     "warmup_steps": 50,
@@ -988,7 +990,8 @@ BATCH_SIZE = int(cfg_get("batch_size", DEFAULTS["batch_size"]))
 GRAD_ACCUM_STEPS = int(cfg_get("grad_accum_steps", DEFAULTS["grad_accum_steps"]))
 LR = float(cfg_get("lr", DEFAULTS["lr"]))
 MIN_LR_RATIO = float(cfg_get("min_lr_ratio", DEFAULTS["min_lr_ratio"]))
-LR_SCHEDULE = str(cfg_get("lr_schedule", DEFAULTS["lr_schedule"])).strip().lower()
+LR_SCHEDULER = str(cfg_get("lr_scheduler", DEFAULTS["lr_scheduler"]))
+LR_CYCLES = int(cfg_get("lr_cycles", DEFAULTS["lr_cycles"]))
 GRAD_PROFILE_EVERY = int(cfg_get("grad_profile_every", DEFAULTS["grad_profile_every"]) or 0)
 OVERFIT_PROBE_EVERY = int(cfg_get("overfit_probe_every", DEFAULTS["overfit_probe_every"]) or 0)
 WARMUP_STEPS = int(cfg_get("warmup_steps", DEFAULTS["warmup_steps"]))
@@ -1131,6 +1134,7 @@ log_print("  Cache Dir           : {}".format(CACHE_DIR))
 log_print("  Output Dir          : {}".format(OUTPUT_DIR))
 log_print("  Total Steps         : {}".format(TOTAL_STEPS))
 log_print("  Learning Rate       : {}".format(LR))
+log_print("  LR Scheduler        : {}".format(lora_options.lr_scheduler_label(LR_SCHEDULER, WARMUP_STEPS, LR_CYCLES)))
 log_print("  LoRA Rank/Alpha     : {}/{}".format(LORA_RANK, LORA_ALPHA))
 log_print("  Optimizer           : {}".format(
     "AdamW (fp32)" if OPTIMIZER_TYPE == "adamw" else "PagedAdamW8bit (8-bit)"))
@@ -5764,7 +5768,7 @@ def build_lora_metadata(prefix, scaling, extra=None):
         "ss_network_dim": str(LORA_RANK),
         "ss_network_alpha": str(LORA_ALPHA),
         "ss_learning_rate": str(LR),
-        "ss_lr_scheduler": str(LR_SCHEDULE),
+        "ss_lr_scheduler": LR_SCHEDULER,
         "ss_max_train_steps": str(TOTAL_STEPS),
         "ss_gradient_accumulation_steps": str(GRAD_ACCUM_STEPS),
         "ss_seed": str(SEED),
@@ -7257,7 +7261,7 @@ def reload_runtime_config():
     global CHECKPOINT_USE_REENTRANT
     global CAPTION_DROPOUT
     global LORA_SAVE_RAW_COPY
-    global LR_SCHEDULE, GRAD_PROFILE_EVERY
+    global LR_SCHEDULER, LR_CYCLES, GRAD_PROFILE_EVERY
     global OVERFIT_PROBE_EVERY
     global VRAM_RESIDENT_MAX_BYTES, VRAM_SWAP_MAX_BYTES, VRAM_HEADROOM_MAX_BYTES
     global VRAM_RUNTIME_MAX_BYTES
@@ -7310,7 +7314,8 @@ def reload_runtime_config():
 
     LR = float(cfg_get("lr", DEFAULTS["lr"]))
     MIN_LR_RATIO = float(cfg_get("min_lr_ratio", DEFAULTS["min_lr_ratio"]))
-    LR_SCHEDULE = str(cfg_get("lr_schedule", DEFAULTS["lr_schedule"])).strip().lower()
+    LR_SCHEDULER = str(cfg_get("lr_scheduler", DEFAULTS["lr_scheduler"]))
+    LR_CYCLES = int(cfg_get("lr_cycles", DEFAULTS["lr_cycles"]))
     GRAD_PROFILE_EVERY = int(cfg_get("grad_profile_every", DEFAULTS["grad_profile_every"]) or 0)
     OVERFIT_PROBE_EVERY = int(cfg_get("overfit_probe_every", DEFAULTS["overfit_probe_every"]) or 0)
     WARMUP_STEPS = int(cfg_get("warmup_steps", DEFAULTS["warmup_steps"]))
@@ -7686,21 +7691,7 @@ def train_minimaxh3():
         opt_step = step / float(max(1, GRAD_ACCUM_STEPS))
         opt_total = TOTAL_STEPS / float(max(1, GRAD_ACCUM_STEPS))
 
-        if opt_step < WARMUP_STEPS:
-            return LR * opt_step / max(1, WARMUP_STEPS)
-
-        if LR_SCHEDULE == "flat":
-            # Sin decaimiento: el LoRA arranca en cero y necesita todo el
-            # presupuesto de movimiento que pueda.
-            return LR
-
-        progress = (opt_step - WARMUP_STEPS) / max(1.0, opt_total - WARMUP_STEPS)
-        progress = min(1.0, max(0.0, progress))
-
-        return LR * (
-            MIN_LR_RATIO
-            + (1 - MIN_LR_RATIO) * 0.5 * (1 + math.cos(math.pi * progress))
-        )
+        return LR * lora_options.lr_factor(LR_SCHEDULER, opt_step, opt_total, WARMUP_STEPS, MIN_LR_RATIO, LR_CYCLES)
 
     if SEED > 0:
         torch.manual_seed(SEED)

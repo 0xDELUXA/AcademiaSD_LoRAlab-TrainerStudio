@@ -44,6 +44,8 @@ DEFAULTS = {
     "lr": 1e-4,
     "min_lr_ratio": 0.1,
     "warmup_steps": 100,
+    "lr_scheduler": "cosine",
+    "lr_cycles": 3,
     "lora_rank": 16,
     "lora_alpha": 32,
     "use_rslora": False,
@@ -86,6 +88,8 @@ GRAD_ACCUM_STEPS  = cfg.get("grad_accum_steps",  DEFAULTS["grad_accum_steps"])
 LR                = cfg.get("lr",                DEFAULTS["lr"])
 MIN_LR_RATIO      = cfg.get("min_lr_ratio",      DEFAULTS["min_lr_ratio"])
 WARMUP_STEPS      = cfg.get("warmup_steps",      DEFAULTS["warmup_steps"])
+LR_SCHEDULER      = cfg.get("lr_scheduler",      DEFAULTS["lr_scheduler"])
+LR_CYCLES         = cfg.get("lr_cycles",         DEFAULTS["lr_cycles"])
 LORA_RANK         = cfg.get("lora_rank",         DEFAULTS["lora_rank"])
 LORA_ALPHA        = cfg.get("lora_alpha",        DEFAULTS["lora_alpha"])
 # rsLoRA escala el LoRA por alpha/√rank en vez de alpha/rank; LoRA+ da a lora_B un LR ratio veces mayor.
@@ -134,6 +138,7 @@ print(f"  {t('Cache Dir'):<22}: {CACHE_DIR}")
 print(f"  {t('Output Dir'):<22}: {OUTPUT_DIR}")
 print(f"  {t('Total Steps'):<22}: {TOTAL_STEPS}")
 print(f"  {t('Learning Rate'):<22}: {LR}")
+print(f"  {t('LR Scheduler'):<22}: {lora_options.lr_scheduler_label(LR_SCHEDULER, WARMUP_STEPS, LR_CYCLES)}")
 print(f"  {'LoRA Rank/Alpha':<22}: {LORA_RANK}/{LORA_ALPHA}")
 print(f"  {'rsLoRA / LoRA+':<22}: {'on' if USE_RSLORA else 'off'} / {f'x{LORAPLUS_RATIO:g}' if USE_LORAPLUS else 'off'}")
 print(f"  {'LoKr':<22}: {f'factor {LOKR_FACTOR}' if USE_LOKR else 'off'}")
@@ -371,7 +376,7 @@ def build_lora_metadata(step):
         "ss_network_dim": LORA_RANK,
         "ss_network_alpha": export_alpha(),
         "ss_learning_rate": LR,
-        "ss_lr_scheduler": "cosine_with_warmup",
+        "ss_lr_scheduler": LR_SCHEDULER,
         "ss_lr_warmup_steps": WARMUP_STEPS,
         "ss_max_train_steps": TOTAL_STEPS,
         "ss_steps": step,
@@ -1226,10 +1231,7 @@ def train_krea2():
         optimizer = bnb.optim.AdamW8bit(trainable, lr=LR, weight_decay=WEIGHT_DECAY)
 
     def lr_at(step):
-        if step < WARMUP_STEPS:
-            return LR * step / max(1, WARMUP_STEPS)
-        prog = (step - WARMUP_STEPS) / max(1, TOTAL_STEPS - WARMUP_STEPS)
-        return LR * (MIN_LR_RATIO + (1 - MIN_LR_RATIO) * 0.5 * (1 + math.cos(math.pi * prog)))
+        return LR * lora_options.lr_factor(LR_SCHEDULER, step, TOTAL_STEPS, WARMUP_STEPS, MIN_LR_RATIO, LR_CYCLES)
 
     start_step = 0
     lora_weights_path = resume_weights

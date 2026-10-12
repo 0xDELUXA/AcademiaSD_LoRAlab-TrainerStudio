@@ -1067,5 +1067,10 @@
   "Automatic": "自動",
   "Only from the training PC.": "学習用 PC からのみ操作できます。",
   "GPU not found: {name}": "GPU が見つかりません：{name}",
-  "The GPU applies to the trainers opened from now on.": "GPU はこれから開くトレーナーに適用されます。"
+  "The GPU applies to the trainers opened from now on.": "GPU はこれから開くトレーナーに適用されます。",
+  "How the learning rate changes during training. cosine: rises during the warmup, then eases down to 10% of the LR. constant: the same LR from the first step to the last. constant_with_warmup: rises during the warmup, then stays. linear: rises during the warmup, then goes down in a straight line to 10%. cosine_with_restarts: like cosine, but it climbs back up and repeats the curve as many times as Cycles.": "学習中に学習率がどう変化するか。cosine：ウォームアップ中に上がり、その後 LR の 10% までなだらかに下がる。constant：最初から最後まで同じ LR。constant_with_warmup：ウォームアップ中に上がり、その後は一定。linear：ウォームアップ中に上がり、その後 10% まで直線的に下がる。cosine_with_restarts：cosine と同様だが、再び上がってサイクル数の回数だけカーブを繰り返す。",
+  "Warmup Steps": "ウォームアップ ステップ",
+  "Steps in which the LR rises from 0 to its value at the start of the training. Ignored with constant.": "学習開始時に LR が 0 から設定値まで上がるステップ数。constant では無視されます。",
+  "Cycles": "サイクル数",
+  "How many times cosine_with_restarts repeats the cosine curve.": "cosine_with_restarts がコサインカーブを繰り返す回数。"
 }

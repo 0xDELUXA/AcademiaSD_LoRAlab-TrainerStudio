@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-lora_options.py — Opciones de entrenamiento comunes: rsLoRA, LoRA+ y LoKr.
-Shared training options: rsLoRA, LoRA+ and LoKr.
+lora_options.py — Opciones de entrenamiento comunes: rsLoRA, LoRA+, LoKr y el LR scheduler.
+Shared training options: rsLoRA, LoRA+, LoKr and the LR scheduler.
 
 rsLoRA y LoRA+ son parámetros de PEFT y del optimizador; aquí solo está la conversión del alpha al
 exportar. LoKr (LyCORIS) no usa PEFT: su LoKr no admite las capas NF4 (Linear4bit), así que cada
@@ -26,6 +26,37 @@ def export_alpha(alpha, rank, rslora):
     """Alpha que se escribe en el LoRA exportado. ComfyUI y el resto aplican alpha/rank; con rsLoRA
     el LoRA se entrenó con alpha/√rank, así que se guarda alpha·√rank para que actúe igual."""
     return alpha * math.sqrt(rank) if rslora else alpha
+
+
+def lr_factor(scheduler, step, total, warmup, min_ratio, cycles):
+    """Multiplicador del LR en el paso step. constant no tiene warmup ni bajada; el resto sube lineal
+    durante warmup y luego baja hasta min_ratio (constant_with_warmup se queda arriba).
+    cosine_with_restarts repite el coseno cycles veces, como el de transformers / kohya."""
+    if scheduler == "constant":
+        return 1.0
+    if step < warmup:
+        return step / max(1, warmup)
+    if scheduler == "constant_with_warmup":
+        return 1.0
+    prog = min(1.0, (step - warmup) / max(1, total - warmup))
+    if scheduler == "cosine":
+        decay = 0.5 * (1 + math.cos(math.pi * prog))
+    elif scheduler == "linear":
+        decay = 1 - prog
+    elif scheduler == "cosine_with_restarts":
+        decay = 0.0 if prog >= 1 else 0.5 * (1 + math.cos(math.pi * (cycles * prog % 1)))
+    else:
+        raise ValueError(f"Unknown lr_scheduler: {scheduler}")
+    return min_ratio + (1 - min_ratio) * decay
+
+
+def lr_scheduler_label(scheduler, warmup, cycles):
+    """Texto del scheduler para el resumen de la consola: "cosine (warmup 100)"."""
+    if scheduler == "constant":
+        return scheduler
+    if scheduler == "cosine_with_restarts":
+        return f"{scheduler} (warmup {warmup}, {cycles} cycles)"
+    return f"{scheduler} (warmup {warmup})"
 
 
 def lokr_export(model, key_of, alpha):
