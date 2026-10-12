@@ -1062,5 +1062,10 @@
   "Image uploaded": "Imagem enviada",
   "No file received": "Nenhum arquivo recebido",
   "Only images (.png, .jpg, .jpeg, .webp)": "Só imagens (.png, .jpg, .jpeg, .webp)",
-  "RunPod / remote access: sends the image from this device to the training PC and fills the path here. Use it when Browse cannot open.": "RunPod / acesso remoto: envia a imagem deste dispositivo para o PC que treina e preenche o caminho aqui. Use quando Procurar não puder abrir."
+  "RunPod / remote access: sends the image from this device to the training PC and fills the path here. Use it when Browse cannot open.": "RunPod / acesso remoto: envia a imagem deste dispositivo para o PC que treina e preenche o caminho aqui. Use quando Procurar não puder abrir.",
+  "GPU used to train when this PC has more than one NVIDIA card. Automatic lets CUDA pick, which puts the card it considers fastest first, not always the one with more VRAM. It applies to the trainers opened from now on.": "GPU usada para treinar quando o PC tem mais de uma placa NVIDIA. Automática deixa o CUDA escolher, e ele põe primeiro a que considera mais rápida, nem sempre a de mais VRAM. Vale para os treinadores abertos a partir de agora.",
+  "Automatic": "Automática",
+  "Only from the training PC.": "Só a partir do PC que treina.",
+  "GPU not found: {name}": "GPU não encontrada: {name}",
+  "The GPU applies to the trainers opened from now on.": "A GPU vale para os treinadores abertos a partir de agora."
 }

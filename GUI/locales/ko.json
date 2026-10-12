@@ -1062,5 +1062,10 @@
   "Image uploaded": "이미지를 업로드했습니다",
   "No file received": "받은 파일이 없습니다",
   "Only images (.png, .jpg, .jpeg, .webp)": "이미지만 가능 (.png, .jpg, .jpeg, .webp)",
-  "RunPod / remote access: sends the image from this device to the training PC and fills the path here. Use it when Browse cannot open.": "RunPod / 원격 접속: 이 기기의 이미지를 학습 PC로 보내고 여기에 경로를 채웁니다. 찾아보기가 열리지 않을 때 사용하세요."
+  "RunPod / remote access: sends the image from this device to the training PC and fills the path here. Use it when Browse cannot open.": "RunPod / 원격 접속: 이 기기의 이미지를 학습 PC로 보내고 여기에 경로를 채웁니다. 찾아보기가 열리지 않을 때 사용하세요.",
+  "GPU used to train when this PC has more than one NVIDIA card. Automatic lets CUDA pick, which puts the card it considers fastest first, not always the one with more VRAM. It applies to the trainers opened from now on.": "PC에 NVIDIA 카드가 둘 이상일 때 학습에 쓸 GPU입니다. 자동은 CUDA가 고르며, 가장 빠르다고 판단한 카드를 먼저 두기 때문에 VRAM이 더 많은 카드가 아닐 수 있습니다. 지금부터 여는 트레이너에 적용됩니다.",
+  "Automatic": "자동",
+  "Only from the training PC.": "학습 PC에서만 가능합니다.",
+  "GPU not found: {name}": "GPU를 찾을 수 없습니다: {name}",
+  "The GPU applies to the trainers opened from now on.": "GPU는 지금부터 여는 트레이너에 적용됩니다."
 }

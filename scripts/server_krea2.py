@@ -23,6 +23,7 @@ from trainer_stream import TrainerStream
 import i18n
 import remote_access
 import file_transfer
+import gpu_stats
 from pathlib import Path
 from i18n import t
 
@@ -300,38 +301,8 @@ def get_system_stats():
         "percent": ram.percent
     }
 
-    vram_info = {
-        "total_gb": 0.0,
-        "used_gb": 0.0,
-        "percent": 0.0,
-        "temp_c": 0,
-        "gpu_name": "N/A"
-    }
-
-    try:
-        creation_flag = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        cmd = ["nvidia-smi", "--query-gpu=memory.total,memory.used,name,temperature.gpu", "--format=csv,nounits,noheader"]
-        output = subprocess.check_output(cmd, text=True, errors="ignore", creationflags=creation_flag).strip().splitlines()[0]
-        parts = [p.strip() for p in output.split(",")]
-        total_m = float(parts[0])
-        used_m = float(parts[1])
-        vram_info["gpu_name"] = parts[2]
-        vram_info["temp_c"] = int(float(parts[3]))
-        vram_info["total_gb"] = round(total_m / 1024.0, 2)
-        vram_info["used_gb"] = round(used_m / 1024.0, 2)
-        vram_info["percent"] = round((used_m / total_m) * 100, 1) if total_m > 0 else 0.0
-    except Exception:
-        try:
-            import torch
-            if torch.cuda.is_available():
-                vram_info["gpu_name"] = torch.cuda.get_device_name(0)
-                free_b, total_b = torch.cuda.mem_get_info(0)
-                used_b = total_b - free_b
-                vram_info["total_gb"] = round(total_b / (1024**3), 2)
-                vram_info["used_gb"] = round(used_b / (1024**3), 2)
-                vram_info["percent"] = round((used_b / total_b) * 100, 1) if total_b > 0 else 0.0
-        except Exception:
-            pass
+    # nvidia-smi de la GPU elegida, all-smi / amdgpu con AMD; ver gpu_stats.py.
+    vram_info = gpu_stats.vram_info()
 
     return jsonify({"ram": ram_info, "vram": vram_info})
 

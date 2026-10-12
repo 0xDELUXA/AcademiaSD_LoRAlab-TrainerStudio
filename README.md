@@ -127,6 +127,8 @@ Pick a disk with plenty of free space: every model is downloaded into this folde
 
 **AMD GPUs (experimental).** Use **`Install_LoRAlab-TrainerStudio_AMD.bat`** (Windows) or **`Install_LoRAlab-TrainerStudio_AMD.sh`** (Linux) instead of the normal installer. It asks for your GPU family (RX 7000, RX 9000 or Ryzen AI Max / Strix Halo) and installs PyTorch ROCm from AMD's TheRock nightly builds. It is based on [a user's guide](https://civitai.com/articles/36293/training-krea-2minimax-h3etc-lora-on-low-vram-low-ram-amd-gpu-windows), and the same user [confirmed the installer](../../issues/8) on an **RX 7800 XT 16 GB under Windows**: a full MiniMax-H3 training at about 7 s/step, with no errors. The other trainers are not confirmed yet on AMD; results are welcome in that issue. Attention runs on PyTorch's native kernels (SageAttention is NVIDIA only). Do not run `Install_Triton&SageAtten220`, it is NVIDIA only. On Linux you need the `amdgpu` driver and your user in the `render` and `video` groups.
 
+The **VRAM panel** of the trainers reads the real usage of the whole AMD GPU: on Windows through [all-smi](https://github.com/lablup/all-smi), which the AMD installer downloads into `tools/all-smi/` (if you installed before it did, run the AMD installer again or unzip `all-smi-windows-x86_64.zip` from its releases there); on Linux straight from the `amdgpu` driver, with nothing to install.
+
 **Linux.** Every `.bat` has a `.sh` equivalent with the same name (`Install_LoRAlab-TrainerStudio.sh`, `Start_LoRAlab-TrainerStudio.sh`, `code/Run_LoRAlab-<Model>.sh`…) and the launcher picks the right one. Install and usage steps are in [docs/Linux.md](docs/Linux.md).
 
 ## 🔄 Updating
@@ -152,6 +154,7 @@ Also in every trainer:
 - **Live settings:** while training, change steps, save/preview frequency, preview settings or learning rate and press **Save JSON**; the change applies on the next step.
 - **Delete Pre-Cache / Delete Training** empty the current project's folders (the dataset is never touched).
 - Exported LoRAs carry kohya-style metadata (trigger word, rank, steps, resolution) that CivitAI and LoRA managers read.
+- **Several NVIDIA GPUs?** Pick the one to train with in **🎮 GPU**, next to the language at the bottom of the launcher, and press **💾 Save settings**. It applies to the trainers opened from then on, and the VRAM panel shows that card. *Automatic* keeps CUDA's choice, which puts the card it considers fastest first, not always the one with more VRAM. The selector only appears with two or more NVIDIA cards.
 - Optional **Hugging Face token** for faster downloads. Your settings and token are stored in `settings\`, which is never uploaded.
 - Each project uses its own folders: `cached_data_<model>_<project>` for the pre-cache and `<model>_lora_output_<project>` for checkpoints, previews and LoRAs.
 
@@ -479,7 +482,7 @@ AcademiaSD_LoRAlab-TrainerStudio/
 │   └── locales/                      # Translations: <language>.json (English is the built-in text)
 ├── docs/                             # Technical notes per trainer
 ├── assets/                           # Covers and logos
-├── tools/<model>/                    # NF4 converters and dataset tools
+├── tools/<model>/                    # NF4 converters and dataset tools (tools/all-smi/ on AMD Windows)
 ├── Example_Dataset/                  # Small example dataset (MiniMax-H3)
 └── settings/                         # Your settings, HF token, network.json and ui.json (created on first use, never uploaded)
 ```
@@ -528,6 +531,7 @@ Code adapted or copied from other projects, and the work it builds on:
 | [BS-RoFormer](https://github.com/lucidrains/BS-RoFormer) by lucidrains | Architecture the Mel-Band RoFormer code derives from | MIT |
 | [librosa](https://github.com/librosa/librosa) | Mel filter bank reimplemented in `scripts/melband/mel_converter.py` | ISC |
 | [ai-toolkit](https://github.com/ostris/ai-toolkit) by ostris | Reference for the MiniMax H3 LoRA key layout and the caption text-encoder allowlist | MIT |
+| [all-smi](https://github.com/lablup/all-smi) by Lablup | AMD GPU VRAM for the trainers' panel on Windows (`scripts/gpu_stats.py` reads its JSON snapshot; the AMD installer downloads the signed binary) | Apache-2.0 |
 | [LyCORIS](https://github.com/KohakuBlueleaf/LyCORIS) by KohakuBlueleaf | The LoKr method in `scripts/lora_options.py`: Kronecker factorization, initialization and `lokr_*` key layout (reimplemented for NF4 layers) | Apache-2.0 |
 | [rsLoRA](https://arxiv.org/abs/2312.03732) (Kalajdzievski) and [LoRA+](https://arxiv.org/abs/2402.12354) (Hayou, Ghosh, Yu) | The `alpha/√rank` scaling and the separate learning rate for `lora_B` | papers |
 | [kohya-ss sd-scripts](https://github.com/kohya-ss/sd-scripts) | `ss_*` LoRA metadata convention, SDXL LoRA key format and 75-token caption chunking | Apache-2.0 |
