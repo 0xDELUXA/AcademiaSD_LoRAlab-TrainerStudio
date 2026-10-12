@@ -24,6 +24,7 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, request, send_from_directory
 
+import gpu_stats
 import i18n
 import remote_access
 from i18n import t
@@ -130,6 +131,9 @@ def launch():
     if trainer_running():
         return jsonify({"status": "busy", "url": trainer_url()})
 
+    # La GPU elegida pasa al entrenador por herencia: el .bat/.sh, su servidor y los scripts la ven.
+    gpu_stats.apply_saved_gpu(os.environ)
+
     if os.name == "nt":
         # "start" abre el .bat en su propia consola: cerrarla detiene ese entrenador.
         subprocess.Popen(["cmd", "/c", "start", "", str(run)], cwd=str(BASE_DIR))
@@ -139,6 +143,20 @@ def launch():
 
 
 # La configuración de red solo se cambia desde este PC: un equipo remoto no puede abrir más el acceso.
+@app.route("/api/gpu", methods=["GET", "POST"])
+def gpu():
+    """GET: tarjetas NVIDIA y la elegida. POST {"gpu": "<índice>" | ""}: la guarda ("" = la primera)."""
+    gpus = gpu_stats.list_nvidia()
+    if request.method == "POST":
+        if not remote_access.is_local():
+            return jsonify({"status": "error", "error": t("Only from the training PC.")}), 403
+        chosen = str((request.get_json(force=True) or {}).get("gpu", ""))
+        if chosen and not any(g["index"] == chosen for g in gpus):
+            return jsonify({"status": "error", "error": t("GPU not found: {name}", name=chosen)}), 400
+        gpu_stats.save_gpu(chosen)
+    return jsonify({"status": "ok", "gpus": gpus, "selected": gpu_stats.saved_gpu()})
+
+
 @app.route("/api/network", methods=["GET", "POST"])
 def network():
     if not remote_access.is_local():

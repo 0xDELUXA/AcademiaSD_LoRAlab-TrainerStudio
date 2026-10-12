@@ -120,6 +120,9 @@
     <div id="ui-settings">
         <label for="ui-lang">🌍 <span>Language</span></label>
         <select id="ui-lang" onchange="previewLanguage()"></select>
+        <label for="ui-gpu" id="ui-gpu-label" style="display:none"
+               title="GPU used to train when this PC has more than one NVIDIA card. Automatic lets CUDA pick, which puts the card it considers fastest first, not always the one with more VRAM. It applies to the trainers opened from now on.">🎮 <span>GPU</span></label>
+        <select id="ui-gpu" style="display:none"></select>
         <button type="button" onclick="saveSettings()">💾 Save settings</button>
         <span id="ui-msg"></span>
     </div>
@@ -235,9 +238,33 @@
             document.getElementById('ui-msg').innerText = '';
         }
 
+        // Selector de GPU: solo con más de una tarjeta NVIDIA. "" = la que elija CUDA (como hasta ahora).
+        async function fillGpus() {
+            try {
+                const data = await (await fetch('/api/gpu')).json();
+                if (!data.gpus || data.gpus.length < 2) return;
+                const sel = document.getElementById('ui-gpu');
+                sel.innerHTML = '';
+                sel.add(new Option(t('Automatic'), ''));
+                for (const g of data.gpus) sel.add(new Option(`${g.index}: ${g.name} (${g.total_gb} GB)`, g.index));
+                sel.value = data.selected || '';
+                sel.style.display = '';
+                document.getElementById('ui-gpu-label').style.display = '';
+            } catch (e) { /* sin selector: se usa la GPU de siempre */ }
+        }
+
         async function saveSettings() {
             const msg = document.getElementById('ui-msg');
             try {
+                const gpuSel = document.getElementById('ui-gpu');
+                if (gpuSel.style.display !== 'none') {
+                    const g = await (await fetch('/api/gpu', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ gpu: gpuSel.value })
+                    })).json();
+                    if (g.status !== 'ok') throw new Error(g.error);
+                }
                 const res = await fetch('/api/i18n', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -246,7 +273,8 @@
                 const data = await res.json();
                 if (data.status !== 'ok') throw new Error(data.error);
                 msg.className = 'ok';
-                msg.innerText = '✓ ' + t('Saved. Trainers already open use it after reloading the page; scripts, on their next run.');
+                msg.innerText = '✓ ' + t('Saved. Trainers already open use it after reloading the page; scripts, on their next run.')
+                    + (gpuSel.style.display !== 'none' ? ' ' + t('The GPU applies to the trainers opened from now on.') : '');
             } catch (e) {
                 msg.className = 'warn';
                 msg.innerText = '[!] ' + e.message;
@@ -255,6 +283,7 @@
 
         async function init() {
             fillLanguages();
+            fillGpus();
             cfg = await (await fetch('/launcher.json')).json();
             document.title = cfg.title || document.title;
             document.getElementById('title').alt = cfg.title || '';
