@@ -257,13 +257,31 @@
 
     <script>
         // El puerto del lanzador sale de settings/network.json vía /api/launcher-url.
+        // Si se llegó desde el lanzador (misma pestaña), "Back" vuelve con history.back():
+        // el lanzador ya abierto se conserva y no queda otra entrada en el historial.
         // The launcher port comes from settings/network.json via /api/launcher-url.
+        // When the page was reached from the launcher (same tab), Back uses history.back():
+        // the launcher already open is kept and no extra history entry is left behind.
         (function () {
             const b = document.getElementById('back-to-launcher');
             if (!b) return;
+            let launcherUrl = '';
+            const fromLauncher = function () {
+                if (!launcherUrl || !document.referrer) return false;
+                try {
+                    const r = new URL(document.referrer), l = new URL(launcherUrl);
+                    return r.hostname === l.hostname && r.port === l.port;
+                } catch (e) { return false; }
+            };
+            b.addEventListener('click', function (e) {
+                if (fromLauncher() && history.length > 1) {
+                    e.preventDefault();
+                    history.back();
+                }
+            });
             fetch('/api/launcher-url')
                 .then(r => r.json())
-                .then(d => { if (d.url) b.href = d.url; else b.remove(); })
+                .then(d => { if (d.url) { launcherUrl = d.url; b.href = d.url; } else b.remove(); })
                 .catch(() => b.remove());
         })();
     </script>
