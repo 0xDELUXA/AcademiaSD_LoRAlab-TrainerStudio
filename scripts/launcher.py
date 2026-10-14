@@ -120,14 +120,29 @@ def _pid_alive(pid: int):
         return False
 
 
+def _pid_cmdline_nt(pid: int):
+    # Línea de comandos del proceso en Windows. wmic ya no existe en Windows 11 24H2+,
+    # así que hay respaldo por la API CIM (WMI) de PowerShell.
+    # Process command line on Windows. wmic is gone in Windows 11 24H2+, so there is a
+    # fallback through PowerShell's CIM (WMI) API.
+    for cmd in (["wmic", "process", "where", f"ProcessId={pid}", "get", "CommandLine"],
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                 f"(Get-CimInstance Win32_Process -Filter 'ProcessId={pid}').CommandLine"]):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True).stdout
+        except OSError:
+            continue
+        if out.strip():
+            return out
+    return ""
+
+
 def _pid_is_trainer(pid: int):
     # Solo se cierra algo lanzado desde aquí, por si el PID se reutilizó.
     # Only close something launched from here, in case the PID was reused.
     try:
         if os.name == "nt":
-            out = subprocess.run(["wmic", "process", "where", f"ProcessId={pid}",
-                                  "get", "CommandLine"], capture_output=True, text=True).stdout
-            return "Run_LoRAlab" in out
+            return "Run_LoRAlab" in _pid_cmdline_nt(pid)
         cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\x00", b" ").decode(errors="replace")
         return "Run_LoRAlab" in cmdline
     except OSError:
