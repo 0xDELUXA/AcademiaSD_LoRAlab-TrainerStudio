@@ -5,8 +5,11 @@ Common launcher for AcademiaSD LoRAlab Trainer Studio
 
 Sirve GUI/launcher.html en http://127.0.0.1:4990 (IP y puertos en settings/network.json, ver remote_access.py). Los entrenadores salen de GUI/launcher.json:
 al pulsar uno se abre su code/Run_LoRAlab-* (.bat en Windows, .sh equivalente en Linux)
-en una ventana nueva, que arranca su servidor
-en el puerto 5000. Para añadir un LoRAlab basta con una entrada más en GUI/launcher.json
+en una ventana nueva (la consola, que mantiene vivo el entrenador), que arranca su servidor
+en el puerto 5000; la pestaña del lanzador navega a él y su tarjeta queda con un brillo
+pulsante mientras siga abierto. Elegir otro entrenador avisa de que el activo se cerrará y, al
+aceptar, lo cierra antes de abrir el nuevo (se guarda su PID para poder cerrarlo).
+Para añadir un LoRAlab basta con una entrada más en GUI/launcher.json
 (id, name, description, image, run). Las tarjetas se colocan solas: hasta 3 en una fila y, a partir
 de ahí, dos filas con la sobrante arriba (4 -> 2+2, 5 -> 3+2, 6 -> 3+3). image_scale fija el tamaño
 de la portada (0.2 = 20 %) y rows fuerza el número de filas.
@@ -15,10 +18,12 @@ import json
 import logging
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from pathlib import Path
 
@@ -58,7 +63,127 @@ def trainer_url():
     return cfg["trainer_url"] or f"http://{request.host.rsplit(':', 1)[0]}:{cfg['trainer_port']}"
 
 
-def _launch_linux(run: Path):
+ACTIVE_FILE = BASE_DIR / "settings" / "active_trainer.json"
+
+
+def active_id():
+    # Entrenador activo (el que abrió el lanzador), o None.
+    # Active trainer (the one the launcher opened), or None.
+    try:
+        return json.loads(ACTIVE_FILE.read_text(encoding="utf-8")).get("id")
+    except (OSError, ValueError):
+        return None
+
+
+def active_pid():
+    try:
+        return int(json.loads(ACTIVE_FILE.read_text(encoding="utf-8")).get("pid") or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def save_active(trainer_id, pid=None):
+    # El PID de la consola permite cerrar el entrenador al cambiar a otro.
+    # The console PID allows closing the trainer when switching to another one.
+    ACTIVE_FILE.parent.mkdir(exist_ok=True)
+    ACTIVE_FILE.write_text(json.dumps({"id": trainer_id, "pid": pid}), encoding="utf-8")
+
+
+def _pids_on_port(port: int):
+    # Quién escucha en el puerto (Linux, sin herramientas externas): inodo del socket en
+    # /proc/net/tcp, buscado entre los descriptores de cada proceso.
+    # Who listens on the port (Linux, no external tools): socket inode in /proc/net/tcp,
+    # looked up among every process' file descriptors.
+    inodes = set()
+    for line in Path("/proc/net/tcp").read_text().splitlines()[1:]:
+        parts = line.split()
+        if len(parts) > 9 and parts[3] == "0A" and int(parts[1].split(":")[1], 16) == port:
+            inodes.add(f"socket:[{parts[9]}]")
+    pids = []
+    if inodes:
+        for d in Path("/proc").iterdir():
+            if not d.name.isdigit():
+                continue
+            try:
+                if any(os.readlink(fd) in inodes for fd in (d / "fd").iterdir()):
+                    pids.append(int(d.name))
+            except OSError:
+                continue
+    return pids
+
+
+def _pid_alive(pid: int):
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def _pid_is_trainer(pid: int):
+    # Solo se cierra algo lanzado desde aquí, por si el PID se reutilizó.
+    # Only close something launched from here, in case the PID was reused.
+    try:
+        if os.name == "nt":
+            out = subprocess.run(["wmic", "process", "where", f"ProcessId={pid}",
+                                  "get", "CommandLine"], capture_output=True, text=True).stdout
+            return "Run_LoRAlab" in out
+        cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\x00", b" ").decode(errors="replace")
+        return "Run_LoRAlab" in cmdline
+    except OSError:
+        return False
+
+
+def kill_trainer():
+    """Cierra el entrenador en marcha y espera a que suelte el puerto.
+    Closes the running trainer and waits for it to release the port."""
+    port = remote_access.load()["trainer_port"]
+    pid = active_pid()
+    if pid and _pid_alive(pid) and _pid_is_trainer(pid):
+        # La consola se lleva el servidor (y su ventana) por delante.
+        # The console takes the server (and its window) with it.
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
+        else:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except OSError:
+                pass
+    elif os.name == "nt":
+        # Sin PID guardado (p. ej. arranque directo): lo que escuche en el puerto.
+        # No saved PID (e.g. direct run): whatever listens on the port.
+        out = subprocess.run(["netstat", "-ano", "-p", "tcp"], capture_output=True, text=True).stdout
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) > 4 and "LISTENING" in line and parts[1].endswith(f":{port}"):
+                subprocess.run(["taskkill", "/PID", parts[-1], "/T", "/F"], capture_output=True)
+    else:
+        for p in _pids_on_port(port):
+            try:
+                os.kill(p, signal.SIGTERM)
+            except OSError:
+                pass
+
+    for _ in range(25):  # hasta 5 s de cortesía / up to 5 s of grace
+        if not trainer_running():
+            return True
+        time.sleep(0.2)
+    if os.name != "nt":
+        # Último recurso: lo que siga con el puerto, sin cortesía.
+        # Last resort: whatever still holds the port, no grace.
+        for p in _pids_on_port(port):
+            try:
+                os.kill(p, signal.SIGKILL)
+            except OSError:
+                pass
+        for _ in range(15):
+            if not trainer_running():
+                return True
+            time.sleep(0.2)
+    return not trainer_running()
+
+
+def _launch_linux(run: Path, env: dict):
     # Abre el .sh en su propia terminal (cerrarla detiene ese entrenador),
     # igual que "start" hace con el .bat en Windows.
     # Opens the .sh in its own terminal (closing it stops that trainer),
@@ -73,13 +198,14 @@ def _launch_linux(run: Path):
     for cmd, append in terminals:
         if shutil.which(cmd[0]) is not None:
             try:
-                subprocess.Popen(
+                proc = subprocess.Popen(
                     cmd + ["bash", str(run)] if append else [cmd[0], "bash", str(run)],
                     cwd=str(BASE_DIR),
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    env=env,
                 )
-                return
+                return proc.pid
             except OSError:
                 continue
     # Sin terminal grafica (p. ej. SSH): proceso independiente con log.
@@ -87,13 +213,15 @@ def _launch_linux(run: Path):
     log = BASE_DIR / "settings" / "trainer_console.log"
     log.parent.mkdir(exist_ok=True)
     fh = log.open("ab")
-    subprocess.Popen(
+    proc = subprocess.Popen(
         ["bash", str(run)],
         cwd=str(BASE_DIR),
         stdout=fh,
         stderr=subprocess.STDOUT,
         start_new_session=True,
+        env=env,
     )
+    return proc.pid
 
 
 @app.route("/")
@@ -113,7 +241,9 @@ def assets(filename):
 
 @app.route("/api/launch", methods=["POST"])
 def launch():
-    trainer_id = str((request.get_json(force=True) or {}).get("id", ""))
+    req = request.get_json(force=True) or {}
+    trainer_id = str(req.get("id", ""))
+    force = bool(req.get("force"))
     trainer = next((t for t in load_config()["trainers"] if t["id"] == trainer_id), None)
     if trainer is None:
         abort(404)
@@ -129,17 +259,43 @@ def launch():
             return jsonify({"status": "error", "error": t("Not found: {name}", name=run.name)}), 404
 
     if trainer_running():
-        return jsonify({"status": "busy", "url": trainer_url()})
+        # Tarjeta con brillo: el entrenador activo ya va corriendo, volver a él.
+        # Glowing card: the active trainer is already running, jump back to it.
+        if active_id() == trainer_id:
+            return jsonify({"status": "ok", "url": trainer_url(), "already": True})
+        if not force:
+            return jsonify({"status": "busy", "url": trainer_url()})
+        # Cambiar de entrenador: cerrar el activo antes de abrir el nuevo.
+        # Switching trainers: close the active one before opening the new one.
+        if not kill_trainer():
+            return jsonify({"status": "error",
+                            "error": t("Could not close the running trainer.")}), 409
 
     # La GPU elegida pasa al entrenador por herencia: el .bat/.sh, su servidor y los scripts la ven.
     gpu_stats.apply_saved_gpu(os.environ)
 
+    # La pestaña del lanzador abre el navegador; el servidor no debe abrir otro.
+    # The launcher tab opens the browser; the server must not open another one.
+    env = dict(os.environ)
+    env["LORALAB_SKIP_BROWSER"] = "1"
+
     if os.name == "nt":
-        # "start" abre el .bat en su propia consola: cerrarla detiene ese entrenador.
-        subprocess.Popen(["cmd", "/c", "start", "", str(run)], cwd=str(BASE_DIR))
+        # Consola propia para el .bat, con su PID a mano para poder cerrarla luego.
+        # Own console for the .bat, PID at hand so it can be closed later.
+        proc = subprocess.Popen(["cmd", "/c", str(run)], cwd=str(BASE_DIR), env=env,
+                                creationflags=subprocess.CREATE_NEW_CONSOLE)
+        pid = proc.pid
     else:
-        _launch_linux(run)
+        pid = _launch_linux(run, env)
+    save_active(trainer_id, pid)
     return jsonify({"status": "ok", "url": trainer_url(), "remote": not remote_access.is_local()})
+
+
+@app.route("/api/status")
+def status():
+    running = trainer_running()
+    return jsonify({"trainer": running, "active": active_id() if running else None,
+                    "url": trainer_url()})
 
 
 # La configuración de red solo se cambia desde este PC: un equipo remoto no puede abrir más el acceso.
