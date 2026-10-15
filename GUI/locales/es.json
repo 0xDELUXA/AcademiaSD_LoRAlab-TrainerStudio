@@ -1081,5 +1081,6 @@
   "Warmup Steps": "Pasos de warmup",
   "Steps in which the LR rises from 0 to its value at the start of the training. Ignored with constant.": "Pasos en los que el LR sube de 0 a su valor al empezar el entrenamiento. Se ignora con constant.",
   "Cycles": "Ciclos",
-  "How many times cosine_with_restarts repeats the cosine curve.": "Cuántas veces repite cosine_with_restarts la curva del coseno."
+  "How many times cosine_with_restarts repeats the cosine curve.": "Cuántas veces repite cosine_with_restarts la curva del coseno.",
+  "Could not check whether {current} is training. Close it from its console window, then try again.": "No se pudo comprobar si {current} está entrenando. Ciérralo desde su ventana de consola y vuelve a intentarlo."
 }

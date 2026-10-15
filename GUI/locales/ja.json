@@ -8,8 +8,6 @@
   "💾 Save settings": "💾 設定を保存",
   "Saved. Trainers already open use it after reloading the page; scripts, on their next run.": "保存しました。開いているトレーナーはページの再読み込み後に、スクリプトは次回の実行時に反映されます。",
   "Opening {name}...": "{name} を開いています...",
-  "{name}: will open in a new window and in the browser.": "{name}: 新しいウィンドウとブラウザで開きます。",
-  "{name}: starting on the training PC; open it in a few seconds at {url}": "{name}: 学習用PCで起動中です。数秒後に {url} を開いてください",
   "A trainer is already open at {url}. Close it before opening another.": "{url} で既にトレーナーが開いています。別のものを開く前に閉じてください。",
   "Close this window to close the launcher.": "ランチャーを終了するにはこのウィンドウを閉じてください。",
   "Video LoRAs": "動画LoRA",
@@ -1072,5 +1070,17 @@
   "Warmup Steps": "ウォームアップ ステップ",
   "Steps in which the LR rises from 0 to its value at the start of the training. Ignored with constant.": "学習開始時に LR が 0 から設定値まで上がるステップ数。constant では無視されます。",
   "Cycles": "サイクル数",
-  "How many times cosine_with_restarts repeats the cosine curve.": "cosine_with_restarts がコサインカーブを繰り返す回数。"
+  "How many times cosine_with_restarts repeats the cosine curve.": "cosine_with_restarts がコサインカーブを繰り返す回数。",
+  "Waiting for {name} to start...": "{name} の起動を待っています...",
+  "{name} did not start in time. Open it manually at {url}.": "{name} が時間内に起動しませんでした。{url} で手動で開いてください。",
+  "Switch trainer": "トレーナーを切り替え",
+  "Another trainer": "別のトレーナー",
+  "Closing {current}...": "{current} を閉じています...",
+  "{current} is open. Opening {next} will close the current trainer and its console window. Continue?": "{current} が開いています。{next} を開くと、現在のトレーナーとそのコンソールウィンドウが閉じます。続行しますか？",
+  "Close and open": "閉じて開く",
+  "Could not close the running trainer.": "実行中のトレーナーを閉じられませんでした。",
+  "{current} is training. Stop the training first, then switch.": "{current} は学習中です。先に学習を停止してから切り替えてください。",
+  "Back": "戻る",
+  "Back to the launcher": "ランチャーに戻る",
+  "Could not check whether {current} is training. Close it from its console window, then try again.": "{current} が学習中かどうか確認できませんでした。コンソールウィンドウから閉じて、もう一度お試しください。"
 }

@@ -8,8 +8,6 @@
   "💾 Save settings": "💾 Salvar configurações",
   "Saved. Trainers already open use it after reloading the page; scripts, on their next run.": "Salvo. Os treinadores já abertos aplicam ao recarregar a página; os scripts, na próxima execução.",
   "Opening {name}...": "Abrindo {name}...",
-  "{name}: will open in a new window and in the browser.": "{name}: abrirá em uma nova janela e no navegador.",
-  "{name}: starting on the training PC; open it in a few seconds at {url}": "{name}: iniciando no PC de treinamento; abra em alguns segundos em {url}",
   "A trainer is already open at {url}. Close it before opening another.": "Já existe um treinador aberto em {url}. Feche-o antes de abrir outro.",
   "Close this window to close the launcher.": "Feche esta janela para fechar o iniciador.",
   "Video LoRAs": "LoRAs de vídeo",
@@ -1072,5 +1070,17 @@
   "Warmup Steps": "Passos de warmup",
   "Steps in which the LR rises from 0 to its value at the start of the training. Ignored with constant.": "Passos em que o LR sobe de 0 até ao seu valor no início do treino. Ignorado com constant.",
   "Cycles": "Ciclos",
-  "How many times cosine_with_restarts repeats the cosine curve.": "Quantas vezes o cosine_with_restarts repete a curva do cosseno."
+  "How many times cosine_with_restarts repeats the cosine curve.": "Quantas vezes o cosine_with_restarts repete a curva do cosseno.",
+  "Waiting for {name} to start...": "A aguardar que {name} arranque...",
+  "{name} did not start in time. Open it manually at {url}.": "{name} não arrancou a tempo. Abre-o manualmente em {url}.",
+  "Switch trainer": "Mudar de treinador",
+  "Another trainer": "Outro treinador",
+  "Closing {current}...": "A fechar {current}...",
+  "{current} is open. Opening {next} will close the current trainer and its console window. Continue?": "{current} está aberto. Abrir {next} fechará o treinador atual e a sua janela de consola. Continuar?",
+  "Close and open": "Fechar e abrir",
+  "Could not close the running trainer.": "Não foi possível fechar o treinador em execução.",
+  "{current} is training. Stop the training first, then switch.": "{current} está a treinar. Para primeiro o treino e depois muda.",
+  "Back": "Voltar",
+  "Back to the launcher": "Voltar ao lançador",
+  "Could not check whether {current} is training. Close it from its console window, then try again.": "Não foi possível verificar se {current} está a treinar. Fecha-o a partir da sua janela de consola e tenta novamente."
 }

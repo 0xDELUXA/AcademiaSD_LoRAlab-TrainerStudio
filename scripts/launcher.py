@@ -73,13 +73,15 @@ def trainer_training():
     # mismo; las peticiones locales no piden contraseña ni con el acceso remoto activado.
     # Is the trainer listening on the port running a script? Asked to the trainer itself;
     # local requests never ask for a password, not even with remote access on.
+    # None = no ha contestado (ocupado o no es un entrenador): ante la duda no se cierra.
+    # None = no answer (busy or not a trainer): when in doubt, nothing is closed.
     port = remote_access.load()["trainer_port"]
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/status", timeout=2) as resp:
             data = json.loads(resp.read().decode("utf-8", "replace"))
     except (OSError, ValueError):
-        return False, None
-    return bool(data.get("running")), data.get("script")
+        return None
+    return bool(data.get("running"))
 
 
 ACTIVE_FILE = BASE_DIR / "settings" / "active_trainer.json"
@@ -376,12 +378,17 @@ def launch():
         # Glowing card: the active trainer is already running, jump back to it.
         if active == trainer_id:
             return jsonify({"status": "ok", "url": trainer_url(), "already": True})
-        if trainer_training()[0]:
+        training = trainer_training()
+        current = next((x["name"] for x in load_config()["trainers"] if x["id"] == active), None) or t("Another trainer")
+        if training is None:
+            return jsonify({"status": "training", "url": trainer_url(),
+                            "error": t("Could not check whether {current} is training. Close it from its console window, then try again.",
+                                       current=current)}), 409
+        if training:
             # El script de entrenamiento es hijo del servidor: cerrarlo ahora cortaría el
             # entrenamiento, y lo avanzado desde el último checkpoint.
             # The training script is a child of the server: closing it now would cut the
             # training, and everything since the last checkpoint.
-            current = next((x["name"] for x in load_config()["trainers"] if x["id"] == active), None) or t("Another trainer")
             return jsonify({"status": "training", "url": trainer_url(),
                             "error": t("{current} is training. Stop the training first, then switch.",
                                        current=current)}), 409
