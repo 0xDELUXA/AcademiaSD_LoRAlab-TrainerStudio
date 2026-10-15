@@ -254,27 +254,28 @@
     </header>
 
     <script>
-        // El puerto del lanzador sale de settings/network.json vía /api/launcher-url.
-        // Si se llegó desde el lanzador (misma pestaña), "Back" vuelve con history.back():
-        // el lanzador ya abierto se conserva y no queda otra entrada en el historial.
-        // The launcher port comes from settings/network.json via /api/launcher-url.
-        // When the page was reached from the launcher (same tab), Back uses history.back():
-        // the launcher already open is kept and no extra history entry is left behind.
+        // El botón «Back» vuelve al lanzador: si hay referrer (se llegó desde él, en la misma
+        // pestaña o a través de un proxy), history.back() deja la pestaña como estaba; sin
+        // referrer (arranque directo del .bat/.sh) se navega a la URL de /api/launcher-url, la
+        // única que se puede construir sin saber si hay un proxy delante.
+        // The "Back" button returns to the launcher: with a referrer (reached from it, same tab
+        // or through a proxy) history.back() leaves the tab as it was; without one (direct
+        // .bat/.sh run) it navigates to the URL from /api/launcher-url, the only one that can
+        // be built without knowing whether a proxy is in front.
         (function () {
             const b = document.getElementById('back-to-launcher');
             if (!b) return;
             let launcherUrl = '';
-            const fromLauncher = function () {
-                if (!launcherUrl || !document.referrer) return false;
-                try {
-                    const r = new URL(document.referrer), l = new URL(launcherUrl);
-                    return r.hostname === l.hostname && r.port === l.port;
-                } catch (e) { return false; }
-            };
             b.addEventListener('click', function (e) {
-                if (fromLauncher() && history.length > 1) {
+                if (document.referrer && history.length > 1) {
                     e.preventDefault();
                     history.back();
+                } else if (document.referrer) {
+                    e.preventDefault();
+                    window.location.href = document.referrer;
+                } else if (launcherUrl) {
+                    e.preventDefault();
+                    window.location.href = launcherUrl;
                 }
             });
             fetch('/api/launcher-url')
