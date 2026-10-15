@@ -258,7 +258,11 @@
                     setStatus(t('Closing {current}...', { current }));
                     data = await apiLaunch(trainer.id, true);
                 }
-                if (data.status !== 'ok') {
+                if (data.status === 'training') {
+                    // Entrenamiento en curso: no se cierra; se explica y se enlaza al entrenador.
+                    // Training in progress: it is not closed; explained, with a link to the trainer.
+                    setStatus(`[!] ${data.error} ${link(data.url)}`, 'warn');
+                } else if (data.status !== 'ok') {
                     setStatus(`[!] ${data.error || 'Error'}`, 'warn');
                 } else if (data.already) {
                     // Tarjeta con brillo: el entrenador ya va corriendo.

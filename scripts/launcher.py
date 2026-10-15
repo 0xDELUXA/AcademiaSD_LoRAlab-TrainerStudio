@@ -7,8 +7,11 @@ Sirve GUI/launcher.html en http://127.0.0.1:4990 (IP y puertos en settings/netwo
 al pulsar uno se abre su code/Run_LoRAlab-* (.bat en Windows, .sh equivalente en Linux)
 en una ventana nueva (la consola, que mantiene vivo el entrenador), que arranca su servidor
 en el puerto 5000; la pestaña del lanzador navega a él y su tarjeta queda con un brillo
-pulsante mientras siga abierto. Elegir otro entrenador avisa de que el activo se cerrará y, al
-aceptar, lo cierra antes de abrir el nuevo (se guarda su PID para poder cerrarlo).
+pulsante mientras siga abierto (el brillo exige que el proceso guardado siga vivo, así una
+entrada vieja en active_trainer.json no lo enciende). Elegir otro entrenador avisa de que el
+activo se cerrará y, al aceptar, lo cierra antes de abrir el nuevo (se guarda su PID; sin PID
+guardado, solo se cierra un server_*.py de esta carpeta scripts). Si el activo está entrenando
+no se cierra: se avisa de que hay que detener el entrenamiento antes de cambiar.
 Para añadir un LoRAlab basta con una entrada más en GUI/launcher.json
 (id, name, description, image, run). Las tarjetas se colocan solas: hasta 3 en una fila y, a partir
 de ahí, dos filas con la sobrante arriba (4 -> 2+2, 5 -> 3+2, 6 -> 3+3). image_scale fija el tamaño
@@ -24,6 +27,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.request
 import webbrowser
 from pathlib import Path
 
@@ -37,6 +41,7 @@ from i18n import t
 BASE_DIR = Path(__file__).resolve().parent.parent
 GUI_DIR = BASE_DIR / "GUI"
 CODE_DIR = BASE_DIR / "code"
+SCRIPTS_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = GUI_DIR / "launcher.json"
 
 app = Flask(__name__)
@@ -63,23 +68,48 @@ def trainer_url():
     return cfg["trainer_url"] or f"http://{request.host.rsplit(':', 1)[0]}:{cfg['trainer_port']}"
 
 
+def trainer_training():
+    # ¿El entrenador que escucha en el puerto está ejecutando un script? Se le pregunta a él
+    # mismo; las peticiones locales no piden contraseña ni con el acceso remoto activado.
+    # Is the trainer listening on the port running a script? Asked to the trainer itself;
+    # local requests never ask for a password, not even with remote access on.
+    port = remote_access.load()["trainer_port"]
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/status", timeout=2) as resp:
+            data = json.loads(resp.read().decode("utf-8", "replace"))
+    except (OSError, ValueError):
+        return False, None
+    return bool(data.get("running")), data.get("script")
+
+
 ACTIVE_FILE = BASE_DIR / "settings" / "active_trainer.json"
 
 
-def active_id():
-    # Entrenador activo (el que abrió el lanzador), o None.
-    # Active trainer (the one the launcher opened), or None.
+def _active_data():
+    # Entrada guardada al abrir un entrenador ({"id", "pid"}), sin comprobar nada.
+    # Entry saved when a trainer was opened ({"id", "pid"}), unchecked.
     try:
-        return json.loads(ACTIVE_FILE.read_text(encoding="utf-8")).get("id")
-    except (OSError, ValueError):
-        return None
+        data = json.loads(ACTIVE_FILE.read_text(encoding="utf-8"))
+        return {"id": data.get("id") or None, "pid": int(data.get("pid") or 0)}
+    except (OSError, ValueError, TypeError, AttributeError):
+        return {"id": None, "pid": 0}
 
 
 def active_pid():
-    try:
-        return int(json.loads(ACTIVE_FILE.read_text(encoding="utf-8")).get("pid") or 0)
-    except (OSError, ValueError):
-        return 0
+    return _active_data()["pid"]
+
+
+def active_running():
+    # El id activo solo cuenta si su proceso sigue vivo y es el del entrenador; el archivo no
+    # se borra al cerrarlo, así que una entrada vieja (p. ej. otro entrenador arrancado a mano
+    # en su lugar) no debe encender su tarjeta ni devolverla como si siguiera abierta.
+    # The active id only counts while its process is alive and is a trainer's; the file is not
+    # removed on close, so a stale entry (e.g. another trainer started by hand instead) must
+    # not light its card up nor be returned as still open.
+    data = _active_data()
+    if data["id"] and data["pid"] and _pid_alive(data["pid"]) and _pid_is_trainer(data["pid"]):
+        return data["id"]
+    return None
 
 
 def save_active(trainer_id, pid=None):
@@ -113,6 +143,20 @@ def _pids_on_port(port: int):
 
 
 def _pid_alive(pid: int):
+    # En Windows os.kill no sirve para esto: por documentación, cualquier señal que no sea
+    # CTRL_C/CTRL_BREAK termina el proceso. Se mira con OpenProcess/WaitForSingleObject.
+    # os.kill is not a liveness check on Windows: per docs, any signal other than
+    # CTRL_C/CTRL_BREAK terminates the process. Checked with OpenProcess/WaitForSingleObject.
+    if os.name == "nt":
+        import ctypes
+        SYNCHRONIZE = 0x00100000
+        handle = ctypes.windll.kernel32.OpenProcess(SYNCHRONIZE, False, int(pid))
+        if not handle:
+            return False
+        try:
+            return ctypes.windll.kernel32.WaitForSingleObject(handle, 0) == 0x102  # WAIT_TIMEOUT
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
     try:
         os.kill(pid, 0)
         return True
@@ -129,24 +173,90 @@ def _pid_cmdline_nt(pid: int):
                 ["powershell", "-NoProfile", "-NonInteractive", "-Command",
                  f"(Get-CimInstance Win32_Process -Filter 'ProcessId={pid}').CommandLine"]):
         try:
-            out = subprocess.run(cmd, capture_output=True, text=True).stdout
-        except OSError:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=5).stdout
+        except (OSError, subprocess.TimeoutExpired):
             continue
         if out.strip():
             return out
     return ""
 
 
-def _pid_is_trainer(pid: int):
-    # Solo se cierra algo lanzado desde aquí, por si el PID se reutilizó.
-    # Only close something launched from here, in case the PID was reused.
+_CMDLINE_CACHE = {}  # pid -> (hora, línea de comandos)
+
+
+def _pid_cmdline(pid: int):
+    # Con caché: /api/status la consulta cada pocos segundos y en Windows cuesta un proceso
+    # aparte (wmic o PowerShell).
+    # Cached: /api/status asks every few seconds and on Windows it costs a separate process
+    # (wmic or PowerShell).
+    hit = _CMDLINE_CACHE.get(pid)
+    if hit and time.time() - hit[0] < 15:
+        return hit[1]
+    if os.name == "nt":
+        cmd = _pid_cmdline_nt(pid)
+    else:
+        try:
+            cmd = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\x00", b" ").decode(errors="replace")
+        except OSError:
+            cmd = ""
+    if len(_CMDLINE_CACHE) > 32:
+        _CMDLINE_CACHE.clear()
+    _CMDLINE_CACHE[pid] = (time.time(), cmd)
+    return cmd
+
+
+def _pid_is_repo_server(pid: int):
+    # Servidor de un entrenador de este repo: la línea de comandos trae server_*.py de esta
+    # carpeta scripts. Así no se cierra otro programa que estuviera usando el mismo puerto.
+    # A server of a trainer from this repo: the command line carries server_*.py from this
+    # scripts folder. This keeps another program using the same port from being closed.
+    cmd = _pid_cmdline(pid)
+    if not cmd or "server_" not in cmd:
+        return False
+    if str(SCRIPTS_DIR).replace("\\", "/").lower() in cmd.replace("\\", "/").lower():
+        return True
+    if os.name == "nt":
+        return False
     try:
-        if os.name == "nt":
-            return "Run_LoRAlab" in _pid_cmdline_nt(pid)
-        cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\x00", b" ").decode(errors="replace")
-        return "Run_LoRAlab" in cmdline
+        return os.path.realpath(f"/proc/{pid}/cwd") == str(SCRIPTS_DIR)
     except OSError:
         return False
+
+
+def _pid_is_trainer(pid: int):
+    # La consola que abre el lanzador (Run_LoRAlab) o un servidor de este repo: solo se cierra
+    # algo con esa pinta, por si el PID se reutilizó.
+    # The console the launcher opens (Run_LoRAlab) or a server of this repo: only something
+    # looking like that is closed, in case the PID was reused.
+    return "Run_LoRAlab" in _pid_cmdline(pid) or _pid_is_repo_server(pid)
+
+
+def _trainer_pids_on_port(port: int):
+    # Lo que escucha en el puerto y es un servidor de este repo (nunca otro programa).
+    # Whatever listens on the port and is a server of this repo (never another program).
+    if os.name == "nt":
+        out = subprocess.run(["netstat", "-ano", "-p", "tcp"], capture_output=True, text=True).stdout
+        pids = []
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) > 4 and "LISTENING" in line and parts[1].endswith(f":{port}"):
+                try:
+                    pids.append(int(parts[-1]))
+                except ValueError:
+                    continue
+    else:
+        pids = _pids_on_port(port)
+    return sorted({p for p in pids if _pid_is_repo_server(p)})
+
+
+def _kill_pid(pid: int):
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
+    else:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
 
 
 def kill_trainer():
@@ -157,27 +267,14 @@ def kill_trainer():
     if pid and _pid_alive(pid) and _pid_is_trainer(pid):
         # La consola se lleva el servidor (y su ventana) por delante.
         # The console takes the server (and its window) with it.
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
-        else:
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except OSError:
-                pass
-    elif os.name == "nt":
-        # Sin PID guardado (p. ej. arranque directo): lo que escuche en el puerto.
-        # No saved PID (e.g. direct run): whatever listens on the port.
-        out = subprocess.run(["netstat", "-ano", "-p", "tcp"], capture_output=True, text=True).stdout
-        for line in out.splitlines():
-            parts = line.split()
-            if len(parts) > 4 and "LISTENING" in line and parts[1].endswith(f":{port}"):
-                subprocess.run(["taskkill", "/PID", parts[-1], "/T", "/F"], capture_output=True)
+        _kill_pid(pid)
     else:
-        for p in _pids_on_port(port):
-            try:
-                os.kill(p, signal.SIGTERM)
-            except OSError:
-                pass
+        # Sin PID guardado (p. ej. arranque directo): lo que escuche en el puerto, y solo si
+        # es un servidor de este repo.
+        # No saved PID (e.g. direct run): whatever listens on the port, and only if it is a
+        # server of this repo.
+        for p in _trainer_pids_on_port(port):
+            _kill_pid(p)
 
     for _ in range(25):  # hasta 5 s de cortesía / up to 5 s of grace
         if not trainer_running():
@@ -186,7 +283,7 @@ def kill_trainer():
     if os.name != "nt":
         # Último recurso: lo que siga con el puerto, sin cortesía.
         # Last resort: whatever still holds the port, no grace.
-        for p in _pids_on_port(port):
+        for p in _trainer_pids_on_port(port):
             try:
                 os.kill(p, signal.SIGKILL)
             except OSError:
@@ -274,10 +371,20 @@ def launch():
             return jsonify({"status": "error", "error": t("Not found: {name}", name=run.name)}), 404
 
     if trainer_running():
+        active = active_running()
         # Tarjeta con brillo: el entrenador activo ya va corriendo, volver a él.
         # Glowing card: the active trainer is already running, jump back to it.
-        if active_id() == trainer_id:
+        if active == trainer_id:
             return jsonify({"status": "ok", "url": trainer_url(), "already": True})
+        if trainer_training()[0]:
+            # El script de entrenamiento es hijo del servidor: cerrarlo ahora cortaría el
+            # entrenamiento, y lo avanzado desde el último checkpoint.
+            # The training script is a child of the server: closing it now would cut the
+            # training, and everything since the last checkpoint.
+            current = next((x["name"] for x in load_config()["trainers"] if x["id"] == active), None) or t("Another trainer")
+            return jsonify({"status": "training", "url": trainer_url(),
+                            "error": t("{current} is training. Stop the training first, then switch.",
+                                       current=current)}), 409
         if not force:
             return jsonify({"status": "busy", "url": trainer_url()})
         # Cambiar de entrenador: cerrar el activo antes de abrir el nuevo.
@@ -309,7 +416,7 @@ def launch():
 @app.route("/api/status")
 def status():
     running = trainer_running()
-    return jsonify({"trainer": running, "active": active_id() if running else None,
+    return jsonify({"trainer": running, "active": active_running() if running else None,
                     "url": trainer_url()})
 
 

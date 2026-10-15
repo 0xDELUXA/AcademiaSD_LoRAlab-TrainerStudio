@@ -16,6 +16,7 @@
   "{current} is open. Opening {next} will close the current trainer and its console window. Continue?": "{current} está abierto. Abrir {next} cerrará el entrenador actual y su ventana de consola. ¿Continuar?",
   "Close and open": "Cerrar y abrir",
   "Could not close the running trainer.": "No se pudo cerrar el entrenador en marcha.",
+  "{current} is training. Stop the training first, then switch.": "{current} está entrenando. Detén el entrenamiento antes de cambiar de entrenador.",
   "A trainer is already open at {url}. Close it before opening another.": "Ya hay un entrenador abierto en {url}. Ciérralo antes de abrir otro.",
   "Back": "Volver",
   "Back to the launcher": "Volver al lanzador",
