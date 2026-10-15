@@ -11,6 +11,9 @@ settings/network.json (se edita desde el lanzador / edited from the launcher):
     external_auth  true = la autenticación la pone otro (proxy inverso): no se pide contraseña
     trainer_url    dirección pública del entrenador tras un proxy (https://trainer.dominio); vacío = host:trainer_port
 
+En los entrenadores, serve() publica además GET /api/launcher-url con la dirección del lanzador
+(este PC, su puerto), que es el destino del botón «← Back» de la interfaz.
+
 Las peticiones desde este mismo PC nunca piden contraseña. Las remotas la piden siempre, y sin
 contraseña configurada se rechazan, salvo con external_auth: la interfaz lanza procesos y escribe
 archivos, así que solo se abre sin contraseña si hay otra autenticación delante. Es HTTP sin cifrar,
@@ -86,6 +89,13 @@ def serve(app, port_key):
     """Arranca el servidor Flask con la IP y el puerto de network.json. port_key: launcher_port o trainer_port."""
     cfg = load()
     app.before_request(_check)
+    if port_key == "trainer_port":
+        # El botón «← Back» de la interfaz necesita el puerto del lanzador.
+        # The trainer UI's "← Back" button needs the launcher's port.
+        def launcher_url():
+            cfg = load()
+            return jsonify({"url": f"http://{request.host.rsplit(':', 1)[0]}:{cfg['launcher_port']}"})
+        app.add_url_rule("/api/launcher-url", "launcher_url", launcher_url)
     host = "0.0.0.0" if cfg["listen"] else "127.0.0.1"
     port = cfg[port_key]
     if cfg["listen"]:

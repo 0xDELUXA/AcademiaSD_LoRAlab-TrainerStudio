@@ -952,6 +952,10 @@ def save_caption_settings():
 
 
 def open_browser():
+    # El lanzador abre el navegador en su propia pestaña.
+    # The launcher opens the browser in its own tab.
+    if os.environ.get("LORALAB_SKIP_BROWSER"):
+        return
     try:
         webbrowser.open(remote_access.local_url("trainer_port"))
     except Exception:

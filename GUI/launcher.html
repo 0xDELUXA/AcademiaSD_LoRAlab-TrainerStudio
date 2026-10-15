@@ -60,6 +60,13 @@
         .card:active { transform: translateY(-2px) scale(0.99); }
         .card.launching { border-color: #10b981; box-shadow: 0 0 0 1px #10b981, 0 0 30px rgba(16, 185, 129, 0.6); }
 
+        /* Brillo pulsante verde del entrenador que ya va corriendo / pulsing green glow of the running trainer */
+        @keyframes card-pulse {
+            0%, 100% { box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.45), 0 0 14px rgba(16, 185, 129, 0.30); }
+            50%      { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.85), 0 0 32px rgba(16, 185, 129, 0.60); }
+        }
+        .card.active-glow { border-color: #10b981; animation: card-pulse 2.4s ease-in-out infinite; }
+
         .card .name { font-size: 1.1rem; font-weight: 700; }
         .card .desc { font-size: 0.8rem; color: var(--text-muted); text-align: center; max-width: 250px; }
 
@@ -80,11 +87,11 @@
                         color: var(--text-main); background: var(--bg-dark); border: 1px solid var(--panel-border); }
         footer button:hover { border-color: var(--accent); }
 
-        #net { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(2, 6, 23, 0.75); z-index: 10; }
-        #net.open { display: flex; }
-        #net form { width: min(440px, 92vw); display: flex; flex-direction: column; gap: 12px; padding: 22px;
+        #net, #confirm { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(2, 6, 23, 0.75); z-index: 10; }
+        #net.open, #confirm.open { display: flex; }
+        #net form, #confirm form { width: min(440px, 92vw); display: flex; flex-direction: column; gap: 12px; padding: 22px;
                     background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 14px; }
-        #net h2 { font-size: 1.1rem; }
+        #net h2, #confirm h2 { font-size: 1.1rem; }
         #net label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-muted); }
         #net label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text-main); font-size: 0.9rem; }
         #net input[type=text], #net input[type=password], #net input[type=number] {
@@ -92,11 +99,12 @@
         #net .pair { display: flex; gap: 10px; }
         #net .pair label { flex: 1; }
         #net .note { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; }
+        #confirm .note { font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; }
         #net .note.warn { color: #f59e0b; }
-        #net .actions { display: flex; gap: 10px; justify-content: flex-end; }
-        #net .actions button { padding: 7px 14px; border-radius: 6px; border: 1px solid var(--panel-border); cursor: pointer;
+        #net .actions, #confirm .actions { display: flex; gap: 10px; justify-content: flex-end; }
+        #net .actions button, #confirm .actions button { padding: 7px 14px; border-radius: 6px; border: 1px solid var(--panel-border); cursor: pointer;
                                color: var(--text-main); background: var(--bg-dark); font-weight: 600; }
-        #net .actions button.primary { background: var(--accent); border-color: var(--accent); }
+        #net .actions button.primary, #confirm .actions button.primary { background: var(--accent); border-color: var(--accent); }
         #net-msg { font-size: 0.8rem; min-height: 1.2em; }
 
         #ui-settings { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-muted); }
@@ -165,6 +173,18 @@
         </form>
     </div>
 
+    <!-- Cambiar de entrenador: aviso antes de cerrar el activo. -->
+    <div id="confirm" onclick="if (event.target === this && window.resolveConfirm) resolveConfirm(false)">
+        <form onsubmit="event.preventDefault(); resolveConfirm(true)">
+            <h2 id="confirm-title"></h2>
+            <p class="note" id="confirm-text"></p>
+            <div class="actions">
+                <button type="button" onclick="resolveConfirm(false)">Cancel</button>
+                <button type="submit" class="primary" id="confirm-ok"></button>
+            </div>
+        </form>
+    </div>
+
     <script>
         // Filas: hasta 3 entrenadores en una fila; con más, dos filas y la de arriba con el sobrante
         // (4 -> 2+2, 5 -> 3+2, 6 -> 3+3, 7 -> 4+3). "rows" en launcher.json fija el número a mano.
@@ -187,29 +207,98 @@
             el.innerHTML = html;
         }
 
+        let live = { trainer: false, active: null, url: null };
+
+        // Confirmación propia, mismo estilo que el resto del lanzador.
+        // Own confirm box, in the launcher's own style.
+        function askConfirm(title, text, okLabel) {
+            return new Promise(resolve => {
+                const modal = document.getElementById('confirm');
+                document.getElementById('confirm-title').innerText = title;
+                document.getElementById('confirm-text').innerText = text;
+                document.getElementById('confirm-ok').innerText = okLabel;
+                const onKey = e => { if (e.key === 'Escape') finish(false); };
+                const finish = value => {
+                    modal.classList.remove('open');
+                    document.removeEventListener('keydown', onKey);
+                    window.resolveConfirm = null;
+                    resolve(value);
+                };
+                window.resolveConfirm = finish;
+                document.addEventListener('keydown', onKey);
+                modal.classList.add('open');
+            });
+        }
+
+        async function apiLaunch(id, force) {
+            const res = await fetch('/api/launch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, force: !!force })
+            });
+            return res.json();
+        }
+
         async function launch(trainer, card) {
             card.classList.add('launching');
             setStatus(t('Opening {name}...', { name: trainer.name }));
             try {
-                const res = await fetch('/api/launch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: trainer.id })
-                });
-                const data = await res.json();
-                if (data.status === 'ok' && data.remote) {
-                    setStatus('✓ ' + t('{name}: starting on the training PC; open it in a few seconds at {url}', { name: trainer.name, url: link(data.url) }), 'ok');
-                } else if (data.status === 'ok') {
-                    setStatus('✓ ' + t('{name}: will open in a new window and in the browser.', { name: trainer.name }), 'ok');
-                } else if (data.status === 'busy') {
-                    setStatus(t('A trainer is already open at {url}. Close it before opening another.', { url: link(data.url) }), 'warn');
-                } else {
+                let data = await apiLaunch(trainer.id, false);
+                if (data.status === 'busy') {
+                    // Otro entrenador en marcha: avisar antes de cerrarlo.
+                    // Another trainer running: warn before closing it.
+                    const current = (cfg.trainers.find(x => x.id === live.active) || {}).name || t('Another trainer');
+                    const ok = await askConfirm(
+                        t('Switch trainer'),
+                        t('{current} is open. Opening {next} will close the current trainer and its console window. Continue?',
+                          { current, next: trainer.name }),
+                        t('Close and open'));
+                    setStatus('');
+                    if (!ok) { card.classList.remove('launching'); return; }
+                    setStatus(t('Closing {current}...', { current }));
+                    data = await apiLaunch(trainer.id, true);
+                }
+                if (data.status === 'training') {
+                    // Entrenamiento en curso: no se cierra; se explica y se enlaza al entrenador.
+                    // Training in progress: it is not closed; explained, with a link to the trainer.
+                    setStatus(`[!] ${data.error} ${link(data.url)}`, 'warn');
+                } else if (data.status !== 'ok') {
                     setStatus(`[!] ${data.error || 'Error'}`, 'warn');
+                } else if (data.already) {
+                    // Tarjeta con brillo: el entrenador ya va corriendo.
+                    // Glowing card: the trainer is already running.
+                    window.location.href = data.url;
+                } else {
+                    await waitForTrainer(data.url, trainer.name);
                 }
             } catch (e) {
                 setStatus(`[!] ${e}`, 'warn');
             }
             setTimeout(() => card.classList.remove('launching'), 1500);
+        }
+
+        // Misma pestaña: espera a que el puerto del entrenador responda y navega aquí.
+        // Same tab: wait for the trainer port to answer, then navigate in place.
+        async function waitForTrainer(url, name) {
+            const deadline = Date.now() + 120000;
+            while (Date.now() < deadline) {
+                setStatus(t('Waiting for {name} to start...', { name }));
+                try {
+                    const s = await (await fetch('/api/status')).json();
+                    if (s.trainer) { window.location.href = url; return; }
+                } catch (e) { /* el lanzador está ocupado / the launcher is busy */ }
+                await new Promise(r => setTimeout(r, 750));
+            }
+            setStatus(t('{name} did not start in time. Open it manually at {url}.', { name, url: link(url) }), 'warn');
+        }
+
+        // Brillo de la tarjeta del entrenador en marcha / glow on the running trainer's card
+        async function updateGlow() {
+            try {
+                live = await (await fetch('/api/status')).json();
+            } catch (e) { return; }
+            document.querySelectorAll('.card').forEach(c =>
+                c.classList.toggle('active-glow', live.trainer && live.active === c.dataset.id));
         }
 
         function link(url) { return `<a href="${url}" target="_blank">${url}</a>`; }
@@ -317,6 +406,8 @@
                 grid.appendChild(row);
             }
             renderTexts();
+            updateGlow();
+            setInterval(updateGlow, 2000);
         }
         let netInfo = null;
 
