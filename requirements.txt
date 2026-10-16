@@ -12,7 +12,7 @@ torchvision
 torchaudio
 
 # diffusers pinned to a main commit: Klein 9B, Ideogram 4, MiniMax-H3 and FLUX.3 are not in a release yet.
-# A new commit (URL) makes pip reinstall it on update; the same main.zip URL would be skipped.
+# pip only compares versions (every main build is 0.41.0.dev0): scripts/sync_pinned.py, run by the updater, reinstalls it when this URL changes.
 diffusers @ https://github.com/huggingface/diffusers/archive/d42ebf9c6e0b46103b74283f5324357a67acaa04.zip
 transformers>=5.17
 peft
