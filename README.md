@@ -64,6 +64,8 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 
 **Linux:** ya tiene soporte para Linux. Cada `.bat` tiene su `.sh` equivalente; la instalación y el uso están en [docs/Linux.md](docs/Linux.md). Gracias a **[Jonathan Hecl (@jonathanhecl)](https://github.com/jonathanhecl)** por aportarlo.
 
+**FLUX.3 Image Klein:** nuevo entrenador de LoRAs normales y de edición (antes → después) para FLUX.3 Image Klein Base, desde 8 GB de VRAM. El captioner escribe en los formatos propios de FLUX.3 (prosa detallada, y opcionalmente con tabla de cajas `<id>`; en edición, la instrucción con `<ref_image_0>`). Necesita la versión nueva de diffusers: ejecuta **`Update_LoRAlab-TrainerStudio.bat`** antes de abrirlo. Detalles en la sección *FLUX.3 Image Klein*.
+
 **LR Scheduler:** debajo del learning rate puedes elegir cómo cambia durante el entrenamiento: `cosine` (por defecto: sube durante el warmup y baja suavemente hasta el 10%), `constant` (el mismo LR de principio a fin, como el entrenador de Civitai), `constant_with_warmup`, `linear` o `cosine_with_restarts` (repite la curva tantas veces como indique *Ciclos*). Si no lo tocas, cada entrenador funciona igual que antes. Detalles en la sección *LR scheduler*.
 
 **Idiomas:** la interfaz y los mensajes de consola están en inglés, español, alemán, francés, portugués, italiano, japonés y coreano. Elige el idioma en el selector **🌍 Language** de la parte inferior del lanzador y pulsa **💾 Save settings**; por defecto está en inglés. Los prompts de los captions siguen siempre en inglés, que es lo que entienden los modelos. Detalles en la sección *Languages*.
