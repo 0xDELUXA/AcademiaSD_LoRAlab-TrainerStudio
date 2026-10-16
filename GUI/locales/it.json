@@ -1082,5 +1082,9 @@
   "{current} is training. Stop the training first, then switch.": "{current} sta addestrando. Ferma prima l'addestramento, poi cambia.",
   "Back": "Indietro",
   "Back to the launcher": "Torna al launcher",
-  "Could not check whether {current} is training. Close it from its console window, then try again.": "Impossibile verificare se {current} sta addestrando. Chiudilo dalla sua finestra della console e riprova."
+  "Could not check whether {current} is training. Close it from its console window, then try again.": "Impossibile verificare se {current} sta addestrando. Chiudilo dalla sua finestra della console e riprova.",
+  "Normal + boxes": "Normale + riquadri",
+  "Edit + boxes (before → after)": "Modifica + riquadri (prima → dopo)",
+  "ids not cited in the paragraph: {ids}": "id non citati nel paragrafo: {ids}",
+  "no valid JSON table": "nessuna tabella JSON valida"
 }

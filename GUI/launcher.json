@@ -54,6 +54,13 @@
       "run": "Run_LoRAlab-Klein9B.bat"
     },
     {
+      "id": "flux3klein",
+      "name": "FLUX.3 Image Klein",
+      "description": "Image and edit LoRAs",
+      "image": "assets/flux3klein/portada.jpg",
+      "run": "Run_LoRAlab-Flux3Klein.bat"
+    },
+    {
       "id": "ernie",
       "name": "ERNIE-Image",
       "description": "Text-to-image LoRAs",

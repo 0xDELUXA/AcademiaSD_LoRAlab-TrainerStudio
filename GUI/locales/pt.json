@@ -1082,5 +1082,9 @@
   "{current} is training. Stop the training first, then switch.": "{current} está a treinar. Para primeiro o treino e depois muda.",
   "Back": "Voltar",
   "Back to the launcher": "Voltar ao lançador",
-  "Could not check whether {current} is training. Close it from its console window, then try again.": "Não foi possível verificar se {current} está a treinar. Fecha-o a partir da sua janela de consola e tenta novamente."
+  "Could not check whether {current} is training. Close it from its console window, then try again.": "Não foi possível verificar se {current} está a treinar. Fecha-o a partir da sua janela de consola e tenta novamente.",
+  "Normal + boxes": "Normal + caixas",
+  "Edit + boxes (before → after)": "Edição + caixas (antes → depois)",
+  "ids not cited in the paragraph: {ids}": "ids não citados no parágrafo: {ids}",
+  "no valid JSON table": "nenhuma tabela JSON válida"
 }

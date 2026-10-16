@@ -1082,5 +1082,9 @@
   "{current} is training. Stop the training first, then switch.": "{current} は学習中です。先に学習を停止してから切り替えてください。",
   "Back": "戻る",
   "Back to the launcher": "ランチャーに戻る",
-  "Could not check whether {current} is training. Close it from its console window, then try again.": "{current} が学習中かどうか確認できませんでした。コンソールウィンドウから閉じて、もう一度お試しください。"
+  "Could not check whether {current} is training. Close it from its console window, then try again.": "{current} が学習中かどうか確認できませんでした。コンソールウィンドウから閉じて、もう一度お試しください。",
+  "Normal + boxes": "通常 + ボックス",
+  "Edit + boxes (before → after)": "編集 + ボックス（前 → 後）",
+  "ids not cited in the paragraph: {ids}": "段落で引用されていない id: {ids}",
+  "no valid JSON table": "有効な JSON テーブルがありません"
 }

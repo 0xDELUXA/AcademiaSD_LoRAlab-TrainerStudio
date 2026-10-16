@@ -41,6 +41,7 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 | **Anima** | Anime and illustration LoRAs (characters, styles) | **4 GB** (NF4) / 6 GB (BF16) |
 | **ERNIE-Image** | Image LoRAs (characters, objects, styles); supports rsLoRA, LoRA+ and LoKr | **Under 8 GB** (NF4; verified during training) |
 | **FLUX.2 Klein 9B** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) | 12 GB |
+| **FLUX.3 Image Klein** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) | 8 GB |
 | **Ideogram 4** | Image LoRAs (characters, objects, styles), with JSON captions | 12 GB (16 GB for previews with CFG) |
 | **SDXL** | Image LoRAs for SDXL Base, Pony, Illustrious, NoobAI, Juggernaut, RealVis or your own SDXL checkpoint | **4 GB** (NF4) / 12 GB (BF16) |
 | **LTX-2.3** (also LTX-2.5) | Character and style LoRAs for the LTX video model, trained from images | 12 GB |
@@ -62,6 +63,8 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 8. **Requisitos:** Windows 10/11, GPU NVIDIA **RTX 20xx / GTX 16xx o posterior** con driver **580 o superior** (o AMD **RX 7000 / RX 9000** de 16 GB, experimental), 8 GB de VRAM (4 GB para Anima y SDXL en NF4, 12 GB para LTX-2.3, FLUX.2 Klein 9B, Ideogram 4 y SDXL en BF16) y 16 GB de RAM (32 GB recomendados).
 
 **Linux:** ya tiene soporte para Linux. Cada `.bat` tiene su `.sh` equivalente; la instalación y el uso están en [docs/Linux.md](docs/Linux.md). Gracias a **[Jonathan Hecl (@jonathanhecl)](https://github.com/jonathanhecl)** por aportarlo.
+
+**FLUX.3 Image Klein:** nuevo entrenador de LoRAs normales y de edición (antes → después) para FLUX.3 Image Klein Base, desde 8 GB de VRAM. El captioner escribe en los formatos propios de FLUX.3 (prosa detallada, y opcionalmente con tabla de cajas `<id>`; en edición, la instrucción con `<ref_image_0>`). Necesita la versión nueva de diffusers: ejecuta **`Update_LoRAlab-TrainerStudio.bat`** antes de abrirlo. Detalles en la sección *FLUX.3 Image Klein*.
 
 **LR Scheduler:** debajo del learning rate puedes elegir cómo cambia durante el entrenamiento: `cosine` (por defecto: sube durante el warmup y baja suavemente hasta el 10%), `constant` (el mismo LR de principio a fin, como el entrenador de Civitai), `constant_with_warmup`, `linear` o `cosine_with_restarts` (repite la curva tantas veces como indique *Ciclos*). Si no lo tocas, cada entrenador funciona igual que antes. Detalles en la sección *LR scheduler*.
 
@@ -341,6 +344,22 @@ All times were measured on an RTX 5080 16 GB.
 | LoRA strength in ComfyUI | 1.0 for characters (1,000 steps) · 1.0–1.5 for edit LoRAs |
 | Speed and VRAM | 512²: ~1.5 s/step, ~8 GB · 768²: ~2.6 s/step, ~10 GB · edit at 512²: ~2.3 s/step, ~8 GB · edit at 768²: ~5.7 s/step, ~11 GB |
 
+### FLUX.3 Image Klein — image and edit LoRAs
+
+- Trains on **FLUX.3 Image Klein Base** (`black-forest-labs/flux-3-image-klein-base`, the undistilled model meant for fine-tuning). The LoRA also loads on the distilled Klein.
+- The 5.5B transformer is **NF4** (3.1 GB instead of 11 GB); the Qwen3-VL-4B text encoder of the pre-cache stays in BF16 and, on small GPUs, the layers that do not fit run from RAM, as in Krea 2.
+- **Normal LoRAs** and **Edit LoRAs** with `name_before` / `name_after` pairs: the "before" goes in through FLUX.3's own reference-image stream, clean, as in the official pipeline.
+- Same recipe as the official diffusers Klein trainer: fixed timestep shift 6.93, velocity target, LoRA on attention + MLP of the image, text and single blocks (plus the reference blocks for edit LoRAs). The LoRA is exported with BFL's original layer names, which ComfyUI loads directly.
+- **Captioner** (Qwen3-VL-8B NF4, shared) in **FLUX.3's own caption formats**, adapted from BFL's prompt-upsampler instructions: *Normal* (a detailed prose caption: medium, scene, lighting, frame-relative layout, subjects), *Normal + boxes* (the caption cites each element as `<person_1>` and ends with a JSON table `[{"id", "bbox", "desc"}]`), *Edit* (a detailed instruction that closes with everything else staying identical) and *Edit + boxes* (the instruction cites `<ref_image_0>` and each item, plus `[{"id", "from", "src_bbox", "tgt_bbox", "desc"}]`, the annotation format BFL trained editing on). Boxes are `[y_min, x_min, y_max, x_max]` on a 0-1000 grid; colors go in words (FLUX.3 has no hex palette, unlike Ideogram 4). For edit pairs the captioner sees the before **and** the after and is told which region changed, computed from the pixels.
+- **Previews:** 28 steps / CFG 3.5 (there is no turbo LoRA for FLUX.3 yet).
+- Needs diffusers with FLUX.3 support: `requirements.txt` pins it, so **Update_LoRAlab-TrainerStudio** installs it.
+
+| Measured on an RTX 5080 | |
+| :--- | :--- |
+| Training | 512²: ~0.7 s/step, ~4.2 GB · 768²: ~2.1 s/step · 1024²: ~3.9 s/step, ~5.7 GB · edit at 768²: ~6 s/step (rank 16) |
+| Previews | 1024², 28 steps with CFG: ~35 s, ~3.7 GB |
+| Text encoder (pre-cache only) | ~8.3 GB in BF16; the part that does not fit in VRAM runs from RAM |
+
 ### Ideogram 4 — image LoRAs
 
 - Trains on the official **Ideogram 4 NF4** release (9.3B, diffusers). It is a single-stream transformer: text and image tokens share one sequence.
@@ -505,7 +524,7 @@ AcademiaSD_LoRAlab-TrainerStudio/
 └── settings/                         # Your settings, HF token, network.json and ui.json (created on first use, never uploaded)
 ```
 
-Models (`Krea-2-NF4`, `LTX23-NF4`, `MiniMax-H3-NF4`, `Qwen-Image21-NF4`, `Z-Image_NF4`, `Anima-Base`, `FLUX.2-Klein-9B_NF4`, `Ideogram4-NF4`, `SDXL-Models`, captioners), caches and LoRA outputs are created next to these folders on first use.
+Models (`Krea-2-NF4`, `LTX23-NF4`, `MiniMax-H3-NF4`, `Qwen-Image21-NF4`, `Z-Image_NF4`, `Anima-Base`, `FLUX.2-Klein-9B_NF4`, `FLUX.3-Image-Klein_NF4`, `Ideogram4-NF4`, `SDXL-Models`, captioners), caches and LoRA outputs are created next to these folders on first use.
 
 ---
 
@@ -522,6 +541,7 @@ The code is released under the **MIT License**. The models keep their own licens
 | Z-Image (and the Z-Image-Fun-Lora-Distill preview LoRA) | Apache 2.0 |
 | Anima | CircleStone Labs Non-Commercial License (plus the NVIDIA Open Model License for Cosmos). Images you generate can be used commercially |
 | FLUX.2 Klein 9B (and the Klein 9B turbo preview LoRA) | FLUX Non-Commercial License — non-commercial |
+| FLUX.3 Image Klein | FLUX Kommunity License (see the model card) |
 | Ideogram 4 | Ideogram Non-Commercial Model Agreement — non-commercial; LoRAs are model derivatives under the same license |
 | SDXL Base 1.0, RealVisXL V5.0 | CreativeML Open RAIL++-M |
 | Pony Diffusion V6 XL, Illustrious XL v0.1, NoobAI-XL 1.1 | Fair AI Public License 1.0-SD |
@@ -552,6 +572,7 @@ Code adapted or copied from other projects, and the work it builds on:
 | [all-smi](https://github.com/lablup/all-smi) by Lablup | AMD GPU VRAM for the trainers' panel on Windows (`scripts/gpu_stats.py` reads its JSON snapshot; the AMD installer downloads the signed binary) | Apache-2.0 |
 | [LyCORIS](https://github.com/KohakuBlueleaf/LyCORIS) by KohakuBlueleaf | The LoKr method in `scripts/lora_options.py`: Kronecker factorization, initialization and `lokr_*` key layout (reimplemented for NF4 layers) | Apache-2.0 |
 | [rsLoRA](https://arxiv.org/abs/2312.03732) (Kalajdzievski) and [LoRA+](https://arxiv.org/abs/2402.12354) (Hayou, Ghosh, Yu) | The `alpha/√rank` scaling and the separate learning rate for `lora_B` | papers |
+| [Diffusers FLUX.3 Klein LoRA trainer](https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/train_dreambooth_lora_flux3_klein.py) | FLUX.3 Klein training recipe: timestep shift, position ids, text window and LoRA targets, followed in `scripts/2_train_lora_flux3klein.py` | Apache-2.0 |
 | [kohya-ss sd-scripts](https://github.com/kohya-ss/sd-scripts) | `ss_*` LoRA metadata convention, SDXL LoRA key format and 75-token caption chunking | Apache-2.0 |
 
 Models and LoRAs downloaded at run time (not part of this repository): MelBandRoFormer weights by [Kijai](https://huggingface.co/Kijai/MelBandRoFormer_comfy), the Klein 9B turbo preview LoRA by [kalle07](https://huggingface.co/kalle07/FLUX.2-klein-9B-turbo-lora-set), the Qwen-Image 2.1 turbo LoRA by [Viggle](https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo), Z-Image-Fun-Lora-Distill by [Alibaba PAI](https://huggingface.co/alibaba-pai/Z-Image-Fun-Lora-Distill), and the ungated Ideogram 4 NF4 mirror by [Unsloth](https://huggingface.co/unsloth/ideogram-4-nf4-diffusers). Thanks to all of them.
