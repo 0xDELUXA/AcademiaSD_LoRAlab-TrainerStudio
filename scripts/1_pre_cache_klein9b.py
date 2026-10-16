@@ -213,6 +213,13 @@ def fit(img, bw, bh):
     left, top = (img.width - bw) // 2, (img.height - bh) // 2
     return img.crop((left, top, left + bw, top + bh))
 
+def dataset_pairs():
+    """(pares nombre_before/nombre_after, imágenes que no forman parte de ningún par)."""
+    stems = {os.path.splitext(f)[0] for f in os.listdir(DATASET_PATH) if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))}
+    pairs = {s[:-len("_before")] for s in stems if s.endswith("_before") and s[:-len("_before")] + "_after" in stems}
+    loose = stems - {p + suffix for p in pairs for suffix in ("_before", "_after")}
+    return pairs, loose
+
 
 def find_samples():
     """
@@ -272,6 +279,17 @@ def preprocess_klein9b():
     if not os.path.exists(DATASET_PATH):
         print("[!] " + t("Dataset folder does not exist: {path}", path=DATASET_PATH))
         sys.exit(1)
+
+    # Pares nombre_before / nombre_after con el tipo en "normal": se entrenarían como imágenes sueltas,
+    # sin la referencia y sin su caption (nombre.txt). Si solo hay pares, es un LoRA de edición.
+    global LORA_TYPE, PREVIEW_EDIT_IMAGE
+    pairs, loose = dataset_pairs()
+    if LORA_TYPE != "edit" and pairs and not loose:
+        print("⚠ " + t("The dataset only has name_before / name_after pairs: training an EDIT LoRA. Set LoRA Type to Edit to use the preview reference image."))
+        LORA_TYPE = "edit"
+        PREVIEW_EDIT_IMAGE = cfg.get("preview_edit_image", "").strip()
+    elif LORA_TYPE != "edit" and pairs:
+        print("⚠ " + t("The dataset mixes {n} before/after pairs with normal images: with LoRA Type normal the pairs train as loose images without their caption.", n=len(pairs)))
 
     samples = find_samples()
     edit = LORA_TYPE == "edit"

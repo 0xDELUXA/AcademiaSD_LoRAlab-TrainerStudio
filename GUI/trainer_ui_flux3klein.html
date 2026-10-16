@@ -694,7 +694,7 @@
                             title="Writes one .txt per image with Qwen3-VL-8B (NF4, ~5.5 GB VRAM), with the trigger word first. Shared with LTX-2.3, Z-Image and Anima: the first time it downloads ~5 GB.">
                         <span id="btn-caption-label">Create Captions</span>
                     </button>
-                    <select class="ds-mode-select" id="caption_mode" onchange="switchCaptionMode()"
+                    <select class="ds-mode-select" id="caption_mode" onchange="switchCaptionMode(); syncLoraType()"
                             title="FLUX.3 caption formats (BFL's own). Normal: a detailed prose caption per image. Normal + boxes: the caption cites each element as &lt;id&gt; and ends with a JSON table of boxes. Edit: one detailed instruction per name_before / name_after pair, saved as name.txt. Edit + boxes: the instruction cites &lt;ref_image_0&gt; and each item, plus a table with each item's box before and after (the format BFL trained editing on). Each mode keeps its own prompt.">
                         <option value="normal">Normal (character / object / style)</option>
                         <option value="normal_boxes">Normal + boxes</option>
@@ -781,6 +781,13 @@
             if (icon) {
                 icon.innerText = panel.classList.contains('collapsed') ? '▼' : '▲';
             }
+        }
+
+        // Un modo de caption de edición implica un LoRA de edición, y al revés: así el pre-caché recibe los pares.
+        function syncLoraType() {
+            const edit = document.getElementById('caption_mode').value.startsWith('edit');
+            document.getElementById('lora_type').value = edit ? 'edit' : 'normal';
+            applyLoraType();
         }
 
         function applyLoraType() {

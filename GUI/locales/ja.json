@@ -1086,5 +1086,7 @@
   "Normal + boxes": "通常 + ボックス",
   "Edit + boxes (before → after)": "編集 + ボックス（前 → 後）",
   "ids not cited in the paragraph: {ids}": "段落で引用されていない id: {ids}",
-  "no valid JSON table": "有効な JSON テーブルがありません"
+  "no valid JSON table": "有効な JSON テーブルがありません",
+  "The dataset only has name_before / name_after pairs: training an EDIT LoRA. Set LoRA Type to Edit to use the preview reference image.": "データセットは name_before / name_after のペアのみです: 編集 LoRA として学習します。プレビューの参照画像を使うには LoRA タイプを「編集」にしてください。",
+  "The dataset mixes {n} before/after pairs with normal images: with LoRA Type normal the pairs train as loose images without their caption.": "データセットに {n} 組の前後ペアと通常の画像が混在しています: LoRA タイプが通常の場合、ペアはキャプションなしの単独画像として学習されます。"
 }

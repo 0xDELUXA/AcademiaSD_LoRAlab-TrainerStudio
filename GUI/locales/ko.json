@@ -1086,5 +1086,7 @@
   "Normal + boxes": "일반 + 박스",
   "Edit + boxes (before → after)": "편집 + 박스 (전 → 후)",
   "ids not cited in the paragraph: {ids}": "단락에서 인용되지 않은 id: {ids}",
-  "no valid JSON table": "유효한 JSON 표가 없습니다"
+  "no valid JSON table": "유효한 JSON 표가 없습니다",
+  "The dataset only has name_before / name_after pairs: training an EDIT LoRA. Set LoRA Type to Edit to use the preview reference image.": "데이터셋에 name_before / name_after 쌍만 있습니다: 편집 LoRA로 학습합니다. 미리보기 참조 이미지를 쓰려면 LoRA 유형을 편집으로 설정하세요.",
+  "The dataset mixes {n} before/after pairs with normal images: with LoRA Type normal the pairs train as loose images without their caption.": "데이터셋에 전/후 쌍 {n}개와 일반 이미지가 섞여 있습니다: LoRA 유형이 일반이면 쌍은 캡션 없이 개별 이미지로 학습됩니다."
 }

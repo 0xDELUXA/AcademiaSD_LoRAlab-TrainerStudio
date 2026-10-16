@@ -1086,5 +1086,7 @@
   "Normal + boxes": "Normal + cajas",
   "Edit + boxes (before → after)": "Edición + cajas (antes → después)",
   "ids not cited in the paragraph: {ids}": "ids sin citar en el párrafo: {ids}",
-  "no valid JSON table": "no hay una tabla JSON válida"
+  "no valid JSON table": "no hay una tabla JSON válida",
+  "The dataset only has name_before / name_after pairs: training an EDIT LoRA. Set LoRA Type to Edit to use the preview reference image.": "El dataset solo tiene pares nombre_before / nombre_after: se entrena un LoRA de EDICIÓN. Pon el Tipo de LoRA en Edición para usar la imagen de referencia de las previews.",
+  "The dataset mixes {n} before/after pairs with normal images: with LoRA Type normal the pairs train as loose images without their caption.": "El dataset mezcla {n} pares antes/después con imágenes normales: con el Tipo de LoRA en normal, los pares se entrenan como imágenes sueltas sin su caption."
 }

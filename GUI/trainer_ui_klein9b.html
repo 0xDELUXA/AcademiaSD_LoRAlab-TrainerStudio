@@ -719,7 +719,7 @@
                             title="Writes one .txt per image with Qwen3-VL-8B (NF4, ~5.5 GB VRAM), with the trigger word first. Shared with LTX-2.3, Z-Image and Anima: the first time it downloads ~5 GB.">
                         <span id="btn-caption-label">Create Captions</span>
                     </button>
-                    <select class="ds-mode-select" id="caption_mode" onchange="switchCaptionMode()"
+                    <select class="ds-mode-select" id="caption_mode" onchange="switchCaptionMode(); syncLoraType()"
                             title="Normal: one description per image, for characters, objects and styles. Edit: one imperative instruction per name_before / name_after pair, saved as name.txt. Each mode keeps its own prompt.">
                         <option value="normal">Normal (character / object / style)</option>
                         <option value="edit">Edit (before → after)</option>
@@ -818,6 +818,13 @@
                 stepsInput.value = 28;
                 cfgInput.value = 4;
             }
+        }
+
+        // Un modo de caption de edición implica un LoRA de edición, y al revés: así el pre-caché recibe los pares.
+        function syncLoraType() {
+            const edit = document.getElementById('caption_mode').value.startsWith('edit');
+            document.getElementById('lora_type').value = edit ? 'edit' : 'normal';
+            applyLoraType();
         }
 
         function applyLoraType() {
