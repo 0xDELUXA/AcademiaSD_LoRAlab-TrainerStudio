@@ -1082,5 +1082,9 @@
   "Steps in which the LR rises from 0 to its value at the start of the training. Ignored with constant.": "Pasos en los que el LR sube de 0 a su valor al empezar el entrenamiento. Se ignora con constant.",
   "Cycles": "Ciclos",
   "How many times cosine_with_restarts repeats the cosine curve.": "Cuántas veces repite cosine_with_restarts la curva del coseno.",
-  "Could not check whether {current} is training. Close it from its console window, then try again.": "No se pudo comprobar si {current} está entrenando. Ciérralo desde su ventana de consola y vuelve a intentarlo."
+  "Could not check whether {current} is training. Close it from its console window, then try again.": "No se pudo comprobar si {current} está entrenando. Ciérralo desde su ventana de consola y vuelve a intentarlo.",
+  "Normal + boxes": "Normal + cajas",
+  "Edit + boxes (before → after)": "Edición + cajas (antes → después)",
+  "ids not cited in the paragraph: {ids}": "ids sin citar en el párrafo: {ids}",
+  "no valid JSON table": "no hay una tabla JSON válida"
 }

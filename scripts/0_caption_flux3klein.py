@@ -1,34 +1,40 @@
 # -*- coding: utf-8 -*-
 """
-0_caption_flux3klein.py — Captions automáticos del dataset con Qwen3-VL-8B
-Dataset auto-captioning with Qwen3-VL-8B
+0_caption_flux3klein.py — Captions automáticos del dataset con Qwen3-VL-8B, en el formato de FLUX.3
+Dataset auto-captioning with Qwen3-VL-8B, in the FLUX.3 caption format
 
-Dos modos / Two modes:
-  normal  personajes, objetos, estilos: un .txt por imagen con una descripción.
-          characters, objects, styles: one .txt per image with a description.
-  edit    pares nombre_before.ext + nombre_after.ext: un nombre.txt con la INSTRUCCIÓN
-          que convierte el antes en el después (imperativo: "Change the background to a
-          sunset beach"). El modelo ya ve el antes,
-          así que el texto dice qué hacer, no qué hay.
-          before/after pairs: one name.txt with the imperative INSTRUCTION that turns the
-          before into the after.
+Cuatro modos, adaptados de las instrucciones de sistema del prompt upsampler de BFL (diffusers,
+modular_pipelines/flux3/prompt_upsampler.py: t2i, t2i_bbox, i2i, i2i_bbox) para describir una imagen
+que ya existe en vez de inventarla / Four modes, adapted from BFL's prompt upsampler system prompts:
+  normal        un párrafo de prosa detallado por imagen (medio, escena, luz, posiciones, sujetos).
+  normal_boxes  el párrafo citando cada elemento como <person_1>... + tabla JSON [{"id","bbox","desc"}].
+  edit          pares nombre_before + nombre_after: la instrucción detallada que convierte el antes
+                en el después, cerrando con que el resto queda igual.
+  edit_boxes    la instrucción citando <ref_image_0> y los <id> + tabla JSON
+                [{"id","from","src_bbox","tgt_bbox","desc"}]: el formato de anotación con el que BFL
+                entrenó la edición. El captioner ve el antes Y el después, así que las cajas salen de
+                lo que cambió de verdad.
+Las cajas de FLUX.3 son [y_min, x_min, y_max, x_max] en una cuadrícula 0-1000. A Qwen se le piden en su
+formato nativo de grounding ([x1, y1, x2, y2] en 0-1000, el que mejor sabe dar) y aquí se convierten.
+Con cajas va en dos pasos: primero la tabla en JSON y después el párrafo, que cita los ids de esa tabla.
 
 La palabra trigger va siempre al principio. / The trigger word always goes first.
 
-Usa el mismo captioner que LTX-2.3, Z-Image y Anima: el text encoder NF4 del repo de
-Qwen-Image 2.1 (Qwen3-VL-8B-Instruct, ~5.5 GB de VRAM). El text encoder de FLUX.3 Klein
-(Qwen3-VL-4B) también ve imágenes, pero el de 8B describe mejor. La primera vez se descargan solo text_encoder_NF4/ y
+Usa el mismo captioner que LTX-2.3, Z-Image y Anima: el text encoder NF4 del repo de Qwen-Image 2.1
+(Qwen3-VL-8B-Instruct, ~5.5 GB de VRAM). La primera vez se descargan solo text_encoder_NF4/ y
 processor/ (~5 GB) a Captioner-Qwen3-VL-8B/, compartido con los demás entrenadores.
 
 Lee caption_settings_flux3klein.json; la ruta del dataset y el trigger salen de
 pre_cache_settings_flux3klein.json.
 """
 import os
+import re
 import sys
 import json
 import time
 import warnings
 
+import numpy as np
 import torch
 from PIL import Image
 from huggingface_hub import snapshot_download
@@ -44,34 +50,105 @@ except Exception:
 # NF4: las capas de visión (4304) no son múltiplo de 64 y usan el kernel general; solo cambia la velocidad.
 warnings.filterwarnings("ignore", message=".*is not aligned for fast kernel.*")
 
+# Partes comunes de las instrucciones, tomadas de las de BFL.
+_PROSE = (
+    "Lead with the medium and style (\"Full-color outdoor photograph, ...\", \"Full-color indoor photograph, ...\", "
+    "\"Studio photograph, ...\", \"Close-up photograph, ...\", or the art style and medium of a non-photographic image), "
+    "then the scene, lighting and camera, then the subjects with concrete colors, materials and state. Every person in "
+    "focus gets an observable profile: ethnicity, gender, age range, skin tone (\"fair skin\", \"brown skin\"), hair, "
+    "clothing, pose and expression. Make the layout reconstructable from words: frame-relative positions (frame-left, "
+    "frame-right, upper, lower, foreground, midground, background), sentence-initial anchors (\"On the left, ...\", "
+    "\"In the background, ...\") and relations (holds, faces, behind). Out-of-focus or distant planes are shapes, colors "
+    "and silhouettes, and the background takes about a sixth of the caption. Transcribe every legible text verbatim "
+    "inside double quotes with its typography, color and placement. Be definite: never \"this image shows\", \"we can "
+    "see\" or \"is visible\", no hedging, no quality or emotion judgments, no closing sentence about mood. Do not "
+    "invent names. All prose is English."
+)
+_ROWS = (
+    "id: the bare class noun plus an index numbered left to right, then top to bottom, from 1 (person_1, dog_2); a text "
+    "block is its two-letter language code plus _Text_ plus an index (En_Text_1); ids are unique. Boxes are "
+    "[x1, y1, x2, y2] integers from 0 to 1000, x from the left edge and y from the top edge, tight around the element. "
+    "desc: one self-contained paragraph opening with the element's identity (never \"the X\"): shape, material, colors, "
+    "state and markings, but no position. People get the richest desc: ethnicity, gender, age range, skin tone, build, "
+    "hair, face, each garment, accessories, pose and expression. A text row quotes its wording verbatim plus its typography."
+)
+
 DEFAULTS = {
     "captioner_dir": "Captioner-Qwen3-VL-8B",
     "dataset_path": "./dataset",
     "trigger_word": "",
     "caption_mode": "normal",
     "caption_prompt": (
-        "Describe this image for training a text-to-image model, in at most 150 words. "
-        "One single paragraph of plain prose, no lists and no preamble. Cover the main "
-        "subject and what they are doing, their appearance, hair and clothing, the pose, "
-        "the framing and camera angle, the setting and background, the lighting and the "
-        "colors. Do not invent a name and do not mention that this is an image or a photo."
+        "Write the caption a FLUX.3 text-to-image model needs to generate exactly this image: ONE continuous prose "
+        "block in the generative voice, 100 to 300 words. " + _PROSE + " Output only the caption: no Markdown, JSON, "
+        "coordinates, ids or angle-bracket tokens."
+    ),
+    # Con cajas va en dos pasos: primero la tabla (TABLE_PROMPTS, JSON, donde Qwen es fiable) y luego
+    # este párrafo, al que se le añade la tabla para que cite sus ids.
+    "caption_boxes_prompt": (
+        "Write the global caption a FLUX.3 text-to-image model needs to generate exactly this image: one flowing "
+        "paragraph in the generative voice, 80 to 250 words (medium and style first, then scene, lighting, camera and "
+        "frame-relative layout). Name each element of the table below at its first mention and cite it with its id in "
+        "angle brackets: \"a wicker table <table_1> holding a tiered stand <stand_1>\". Cite every table id exactly "
+        "once and no other id; appearance detail lives in the table, not in the paragraph; no coordinates. Be "
+        "definite, no quality judgments, do not invent names. Plain prose only: no labels such as \"Medium:\" or "
+        "\"Scene:\", no headings, no lists. All prose is English. Output only the paragraph."
     ),
     "caption_edit_prompt": (
-        "The first image is the original and the second image is the edited result. Write ONE "
-        "imperative instruction, in at most 40 words, that turns the first image into the second. "
-        "Start with a verb such as Colorize, Remove, Replace, Change, Add or Make. Say what changes "
-        "and, briefly, what must stay the same. Do not describe content that does not change, do "
-        "not mention 'first image' or 'second image', and write no preamble."
+        "The first image is the source and the second image is the edited result. Write the instruction an "
+        "image-editing model receives together with the source to produce exactly this result: ONE detailed English "
+        "prose block, 40 to 150 words, in instruction voice (\"Change the ...\", \"Remove the ...\", \"Replace ...\", "
+        "\"Add ...\"), never observer phrasing, never a comparison with the result and never \"first image\" or "
+        "\"second image\". Name what changes with frame-relative positions and land every end state on a concrete "
+        "value (new colors, materials, text in double quotes, pose, degree); include visible knock-on effects such as "
+        "shadows, reflections and lighting. Close with one compact clause that everything else stays identical to the "
+        "source. Output only the instruction: no Markdown, JSON, coordinates, ids or angle-bracket tokens."
     ),
-    # 150 palabras son ~200 tokens; el margen evita captions cortados a media frase.
-    "max_new_tokens": 300,
+    "caption_edit_boxes_prompt": (
+        "The first image is the source, <ref_image_0>; the second image is the edited result. Write the instruction "
+        "an image-editing model receives together with the source to produce exactly this result: ONE English "
+        "paragraph, 40 to 150 words, instruction voice (\"Change the ...\", \"Remove the ...\", \"Add ...\"), never "
+        "observer phrasing and never a comparison with the result. Refer to the source as <ref_image_0>. Cite every "
+        "item of the table below at its first mention with its id in angle brackets (\"remove the delivery van "
+        "<van_1>\"), every id exactly once and no other id. End states (new color, new text in double quotes, pose, "
+        "degree) live in the paragraph; static appearance lives in the table; no coordinates. Close with one compact "
+        "clause that everything else stays identical to the source. The table lists everything the edit involves "
+        "(items with from \"target\" are new): describe only those changes and invent no other. Output only the paragraph."
+    ),
+    # Tope de cada generación (párrafo o tabla); para sola al terminar.
+    "max_new_tokens": 1500,
     "temperature": 0.3,
     # Lado largo de la copia EN MEMORIA que ve el modelo; el fichero del dataset no se toca.
     # Más píxeles = más tokens de visión y un prefill más lento. 0 = sin reescalar.
-    "max_image_side": 768,
+    "max_image_side": 1024,
     # False = no toca las muestras que ya tienen un .txt con contenido.
     "overwrite": True,
 }
+
+TABLE_PROMPTS = {
+    "normal_boxes": (
+        "List the elements of this image as ONE JSON array and nothing else: one row per distinct object, person, "
+        "animal, building or salient region and one per coherent text block; no rows for style, lighting, atmosphere "
+        "or a plain backdrop; more than about ten interchangeable items become one row giving the exact count. At "
+        "most 15 rows. Row keys, in order: \"id\", \"bbox_2d\", \"desc\". " + _ROWS
+    ),
+    "edit_boxes": (
+        "The first image is the source and the second image is the edited result. List what the edit involves as ONE "
+        "JSON array and nothing else: one row per edited, removed, added, moved or anchoring item, plus the background "
+        "when it is itself changed; no rows for untouched scenery. Row keys, in order: \"id\", \"from\", "
+        "\"src_bbox_2d\", \"tgt_bbox_2d\", \"desc\". from: \"ref_image_0\" when the item already exists in the "
+        "source, \"target\" when it only exists in the edited image (an added item). src_bbox_2d: its box in the "
+        "source image, null when it is not there. tgt_bbox_2d: its box in the edited image, null when the edit removed "
+        "it. desc: its static appearance in the source (for added items, in the edited image). " + _ROWS
+    ),
+}
+
+MODES = ("normal", "normal_boxes", "edit", "edit_boxes")
+PROMPT_KEYS = {"normal": "caption_prompt", "normal_boxes": "caption_boxes_prompt",
+               "edit": "caption_edit_prompt", "edit_boxes": "caption_edit_boxes_prompt"}
+# Claves de caja de Qwen -> claves de FLUX.3, en el orden de las filas de BFL.
+BOX_KEYS = {"normal_boxes": (("bbox_2d", "bbox"),),
+            "edit_boxes": (("src_bbox_2d", "src_bbox"), ("tgt_bbox_2d", "tgt_bbox"))}
 
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
 EDIT_SUFFIXES = ("_before", "_after")
@@ -101,13 +178,13 @@ def load_config():
 
 def find_samples(dataset, mode):
     """
-    Devuelve [(nombre, [rutas de imagen])]. En modo edit, el antes va primero.
-    En modo normal se ignoran las imágenes _before/_after.
+    Devuelve [(nombre, [rutas de imagen])]. En los modos de edición, el antes va primero.
+    En los normales se ignoran las imágenes _before/_after.
     """
     images = sorted(f for f in os.listdir(dataset) if f.lower().endswith(IMAGE_EXTS))
     stems = {os.path.splitext(f)[0]: f for f in images}
 
-    if mode == "edit":
+    if mode.startswith("edit"):
         samples = []
         for stem, name in stems.items():
             if stem.endswith("_before") and stem[:-len("_before")] + "_after" in stems:
@@ -142,10 +219,10 @@ def shrink(image, max_side):
 
 
 def clean_caption(text):
-    text = " ".join(text.split())
+    text = " ".join(re.sub(r"```(?:json)?", "", text).split())
     for prefix in ("The image shows ", "This image shows ", "The image depicts ", "This image depicts ",
                    "The photo shows ", "In this image, ", "In the image, ", "Sure, ", "Certainly, ", "Here is a ",
-                   "Instruction: "):
+                   "Instruction: ", "Caption: "):
         if text.lower().startswith(prefix.lower()):
             text = text[len(prefix):]
             text = text[:1].upper() + text[1:]
@@ -153,21 +230,112 @@ def clean_caption(text):
     return text.strip().strip('"')
 
 
-def caption_sample(model, processor, images, prompt, cfg):
+def close_json(text):
+    """Cierra la cadena, las listas y los objetos que hayan quedado abiertos (tabla cortada)."""
+    stack, in_str, esc = [], False, False
+    for ch in text:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]" and stack:
+            stack.pop()
+    text = re.sub(r"[,:\s]+$", "", text + ('"' if in_str else ""))
+    return text + "".join(reversed(stack))
+
+
+def flux3_box(box):
+    """[x1, y1, x2, y2] de Qwen -> [y_min, x_min, y_max, x_max] de FLUX.3, en 0-1000."""
+    if not (isinstance(box, list) and len(box) == 4 and all(isinstance(v, (int, float)) for v in box)):
+        return None
+    x1, y1, x2, y2 = (max(0, min(1000, int(round(v)))) for v in box)
+    return [min(y1, y2), min(x1, x2), max(y1, y2), max(x1, x2)]
+
+
+def read_table(text, mode):
+    """La tabla JSON de Qwen -> filas con las claves, el orden y las cajas de FLUX.3. Si llegó
+    cortada, se cierra."""
+    start = re.search(r"\[\s*\{", text)
+    if not start:
+        return []
+    text = text[start.start():]
+    try:
+        rows = json.loads(text[:text.rfind("]") + 1])
+    except ValueError:
+        try:
+            rows = json.loads(close_json(text))
+        except ValueError:
+            return []
+
+    table = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict) or not row.get("id"):
+            continue
+        out = {"id": str(row["id"]).strip("<>")}
+        if mode == "edit_boxes":
+            out["from"] = "target" if str(row.get("from", "")).strip() == "target" else "ref_image_0"
+        for qwen_key, key in BOX_KEYS[mode]:
+            out[key] = flux3_box(row.get(qwen_key, row.get(key)))
+        if mode == "edit_boxes":
+            # Coherencia de BFL: lo nuevo no tiene caja en el antes; lo que no estaba en el antes es nuevo.
+            if out["src_bbox"] is None:
+                out["from"] = "target"
+            if out["from"] == "target":
+                out["src_bbox"] = None
+        out["desc"] = str(row.get("desc", ""))
+        table.append(out)
+    return table
+
+
+def changed_region(before, after):
+    """
+    Pista para los modos de edición: qué zona cambió, comparando los píxeles del antes y el después
+    (Qwen sola compara mal dos imágenes). Devuelve una frase para el prompt, o "" si no son del mismo
+    encuadre y no se pueden comparar.
+    """
+    if abs(before.width / before.height - after.width / after.height) > 0.02:
+        return ""
+    size = (256, max(1, round(256 * before.height / before.width)))
+    a = np.asarray(before.resize(size, Image.BILINEAR), dtype=np.float32)
+    b = np.asarray(after.resize(size, Image.BILINEAR), dtype=np.float32)
+    changed = np.abs(a - b).mean(axis=2) > 24
+    share = changed.mean()
+    if share < 0.002:
+        return "Pixel comparison: the two images are almost identical; the edit is subtle."
+    if share > 0.5:
+        return "Pixel comparison: the edit changes most of the image (a global change such as color, style or lighting)."
+    ys, xs = np.nonzero(changed)
+    # Percentiles: unos pocos píxeles sueltos no estiran la caja.
+    x1, x2 = np.percentile(xs, [1, 99]) / size[0] * 1000
+    y1, y2 = np.percentile(ys, [1, 99]) / size[1] * 1000
+    return (f"Pixel comparison: the edit changed the region [{int(x1)}, {int(y1)}, {int(x2)}, {int(y2)}] "
+            f"([x1, y1, x2, y2] in 0-1000); everything outside it is unchanged.")
+
+
+def caption_sample(model, processor, images, prompt, cfg, clean=True, sample=True):
     messages = [{"role": "user", "content": [{"type": "image", "image": im} for im in images]
                  + [{"type": "text", "text": prompt}]}]
     text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = processor(text=[text], images=images, return_tensors="pt").to("cuda")
 
-    temperature = float(cfg["temperature"])
+    temperature = float(cfg["temperature"]) if sample else 0.0
     with torch.inference_mode():
         out = model.generate(
             **inputs,
             max_new_tokens=int(cfg["max_new_tokens"]),
             do_sample=temperature > 0,
             temperature=max(temperature, 1e-4),
+            repetition_penalty=1.05,
         )
-    return clean_caption(processor.tokenizer.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True))
+    text = processor.tokenizer.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+    return clean_caption(text) if clean else text
 
 
 def with_trigger(trigger, caption):
@@ -180,8 +348,8 @@ def with_trigger(trigger, caption):
 def main():
     cfg = load_config()
     dataset = cfg["dataset_path"]
-    mode = "edit" if cfg["caption_mode"] == "edit" else "normal"
-    prompt = cfg["caption_edit_prompt"] if mode == "edit" else cfg["caption_prompt"]
+    mode = cfg["caption_mode"] if cfg["caption_mode"] in MODES else "normal"
+    prompt = cfg[PROMPT_KEYS[mode]]
 
     if not os.path.isdir(dataset):
         print("[!] " + t("Dataset folder does not exist: {path}", path=dataset))
@@ -195,14 +363,14 @@ def main():
             continue
         pending.append((name, paths))
 
-    kind = t("before/after pairs") if mode == "edit" else t("images")
+    kind = t("before/after pairs") if mode.startswith("edit") else t("images")
     print(f"  {t('Dataset'):<22}: {os.path.abspath(dataset)}")
     print(f"  {t('Mode'):<22}: {mode}")
     print(f"  {t('Samples'):<22}: {len(samples)} {kind}, {t('{n} to caption', n=len(pending))}")
     print(f"  {t('Trigger Word'):<22}: {cfg['trigger_word'] or t('(none)')}")
     print(f"  {t('Overwrite'):<22}: {t('yes') if cfg['overwrite'] else t('only missing')}")
 
-    if not samples and mode == "edit":
+    if not samples and mode.startswith("edit"):
         print("[!] " + t("No pairs found. Name them name_before.ext and name_after.ext."))
         return 1
     if not pending:
@@ -220,7 +388,34 @@ def main():
             for p in paths:
                 with Image.open(p) as img:
                     images.append(shrink(img.convert("RGB"), int(cfg["max_image_side"])))
-            caption = caption_sample(model, processor, images, prompt, cfg)
+            note = ""
+            hint = changed_region(*images) if mode.startswith("edit") else ""
+            if hint:
+                hint += " Use it only to locate the change; never write coordinates or numbers from it."
+            ask = prompt + ("\n" + hint if hint else "")
+            if mode in BOX_KEYS:
+                table_ask = TABLE_PROMPTS[mode] + ("\n" + hint if hint else "")
+                table = read_table(caption_sample(model, processor, images, table_ask, cfg, clean=False, sample=False), mode)
+                if not table:
+                    raise RuntimeError(t("no valid JSON table"))
+                # El párrafo solo necesita los ids y qué es cada uno: sin cajas, para que no las copie.
+                listed = [{k: v for k, v in row.items() if not k.endswith("bbox")} for row in table]
+                base = ask + "\nTable: " + json.dumps(listed, ensure_ascii=False)
+                ask = base
+                # Un reintento si el párrafo no cita todos los ids: sin cita, la tabla no se asocia al texto.
+                for attempt in range(2):
+                    paragraph = caption_sample(model, processor, images, ask, cfg)
+                    cited = set(re.findall(r"<([^<>\s]+)>", paragraph))
+                    missing = [row["id"] for row in table if row["id"] not in cited]
+                    if not missing:
+                        break
+                    ask = (base + "\nYou MUST write each of these "
+                           "ids in angle brackets right after the words that name it: " + ", ".join(f"<{m}>" for m in missing))
+                if missing:
+                    note = t("ids not cited in the paragraph: {ids}", ids=", ".join(missing[:5]))
+                caption = f"{paragraph} {json.dumps(table, ensure_ascii=False)}"
+            else:
+                caption = caption_sample(model, processor, images, ask, cfg)
             if not caption:
                 raise RuntimeError(t("empty caption"))
 
@@ -232,6 +427,8 @@ def main():
             eta = (time.time() - started) / i * (len(pending) - i)
             print(f"[{i}/{len(pending)}] {name} | {time.time() - t0:.1f}s | ETA {int(eta // 60)}m{int(eta % 60):02d}s", flush=True)
             print(f"    {final[:200]}{'...' if len(final) > 200 else ''}", flush=True)
+            if note:
+                print(f"    [!] {note}", flush=True)
         except Exception as e:
             failed.append(name)
             print(f"[{i}/{len(pending)}] {name} {t('FAILED')}: {e}", flush=True)

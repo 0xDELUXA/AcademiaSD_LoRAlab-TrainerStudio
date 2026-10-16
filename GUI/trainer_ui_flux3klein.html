@@ -695,9 +695,11 @@
                         <span id="btn-caption-label">Create Captions</span>
                     </button>
                     <select class="ds-mode-select" id="caption_mode" onchange="switchCaptionMode()"
-                            title="Normal: one description per image, for characters, objects and styles. Edit: one imperative instruction per name_before / name_after pair, saved as name.txt. Each mode keeps its own prompt.">
+                            title="FLUX.3 caption formats (BFL's own). Normal: a detailed prose caption per image. Normal + boxes: the caption cites each element as &lt;id&gt; and ends with a JSON table of boxes. Edit: one detailed instruction per name_before / name_after pair, saved as name.txt. Edit + boxes: the instruction cites &lt;ref_image_0&gt; and each item, plus a table with each item's box before and after (the format BFL trained editing on). Each mode keeps its own prompt.">
                         <option value="normal">Normal (character / object / style)</option>
+                        <option value="normal_boxes">Normal + boxes</option>
                         <option value="edit">Edit (before → after)</option>
+                        <option value="edit_boxes">Edit + boxes (before → after)</option>
                     </select>
                     <span class="ds-step-hint">Qwen3-VL-8B · before Pre-Cache</span>
                     <label class="ds-inline-label" title="Off = only images with no caption are processed.">
@@ -1637,17 +1639,12 @@
 
         // Mismos prompts por defecto que 0_caption_flux3klein.py; se guardan en caption_settings_flux3klein.json al ejecutar.
         const DEFAULT_CAPTION_PROMPTS = {
-            normal: 'Describe this image for training a text-to-image model, in at most 150 words. '
-                + 'One single paragraph of plain prose, no lists and no preamble. Cover the main subject and what they are doing, '
-                + 'their appearance, hair and clothing, the pose, the framing and camera angle, the setting and background, '
-                + 'the lighting and the colors. Do not invent a name and do not mention that this is an image or a photo.',
-            edit: 'The first image is the original and the second image is the edited result. Write ONE '
-                + 'imperative instruction, in at most 40 words, that turns the first image into the second. '
-                + 'Start with a verb such as Colorize, Remove, Replace, Change, Add or Make. Say what changes '
-                + 'and, briefly, what must stay the same. Do not describe content that does not change, do '
-                + "not mention 'first image' or 'second image', and write no preamble."
+            normal: "Write the caption a FLUX.3 text-to-image model needs to generate exactly this image: ONE continuous prose block in the generative voice, 100 to 300 words. Lead with the medium and style (\"Full-color outdoor photograph, ...\", \"Full-color indoor photograph, ...\", \"Studio photograph, ...\", \"Close-up photograph, ...\", or the art style and medium of a non-photographic image), then the scene, lighting and camera, then the subjects with concrete colors, materials and state. Every person in focus gets an observable profile: ethnicity, gender, age range, skin tone (\"fair skin\", \"brown skin\"), hair, clothing, pose and expression. Make the layout reconstructable from words: frame-relative positions (frame-left, frame-right, upper, lower, foreground, midground, background), sentence-initial anchors (\"On the left, ...\", \"In the background, ...\") and relations (holds, faces, behind). Out-of-focus or distant planes are shapes, colors and silhouettes, and the background takes about a sixth of the caption. Transcribe every legible text verbatim inside double quotes with its typography, color and placement. Be definite: never \"this image shows\", \"we can see\" or \"is visible\", no hedging, no quality or emotion judgments, no closing sentence about mood. Do not invent names. All prose is English. Output only the caption: no Markdown, JSON, coordinates, ids or angle-bracket tokens.",
+            normal_boxes: "Write the global caption a FLUX.3 text-to-image model needs to generate exactly this image: one flowing paragraph in the generative voice, 80 to 250 words (medium and style first, then scene, lighting, camera and frame-relative layout). Name each element of the table below at its first mention and cite it with its id in angle brackets: \"a wicker table <table_1> holding a tiered stand <stand_1>\". Cite every table id exactly once and no other id; appearance detail lives in the table, not in the paragraph; no coordinates. Be definite, no quality judgments, do not invent names. Plain prose only: no labels such as \"Medium:\" or \"Scene:\", no headings, no lists. All prose is English. Output only the paragraph.",
+            edit: "The first image is the source and the second image is the edited result. Write the instruction an image-editing model receives together with the source to produce exactly this result: ONE detailed English prose block, 40 to 150 words, in instruction voice (\"Change the ...\", \"Remove the ...\", \"Replace ...\", \"Add ...\"), never observer phrasing, never a comparison with the result and never \"first image\" or \"second image\". Name what changes with frame-relative positions and land every end state on a concrete value (new colors, materials, text in double quotes, pose, degree); include visible knock-on effects such as shadows, reflections and lighting. Close with one compact clause that everything else stays identical to the source. Output only the instruction: no Markdown, JSON, coordinates, ids or angle-bracket tokens.",
+            edit_boxes: "The first image is the source, <ref_image_0>; the second image is the edited result. Write the instruction an image-editing model receives together with the source to produce exactly this result: ONE English paragraph, 40 to 150 words, instruction voice (\"Change the ...\", \"Remove the ...\", \"Add ...\"), never observer phrasing and never a comparison with the result. Refer to the source as <ref_image_0>. Cite every item of the table below at its first mention with its id in angle brackets (\"remove the delivery van <van_1>\"), every id exactly once and no other id. End states (new color, new text in double quotes, pose, degree) live in the paragraph; static appearance lives in the table; no coordinates. Close with one compact clause that everything else stays identical to the source. The table lists everything the edit involves (items with from \"target\" are new): describe only those changes and invent no other. Output only the paragraph."
         };
-        const CAPTION_PROMPT_KEYS = { normal: 'caption_prompt', edit: 'caption_edit_prompt' };
+        const CAPTION_PROMPT_KEYS = { normal: 'caption_prompt', normal_boxes: 'caption_boxes_prompt', edit: 'caption_edit_prompt', edit_boxes: 'caption_edit_boxes_prompt' };
         // Los dos prompts viven en memoria; el textarea muestra el del modo elegido.
         const captionPrompts = { ...DEFAULT_CAPTION_PROMPTS };
         let captionModeShown = 'normal';
@@ -1666,7 +1663,7 @@
             for (const mode in CAPTION_PROMPT_KEYS) {
                 if (data[CAPTION_PROMPT_KEYS[mode]]) captionPrompts[mode] = data[CAPTION_PROMPT_KEYS[mode]];
             }
-            captionModeShown = data.caption_mode === 'edit' ? 'edit' : 'normal';
+            captionModeShown = data.caption_mode in CAPTION_PROMPT_KEYS ? data.caption_mode : 'normal';
             document.getElementById('caption_mode').value = captionModeShown;
             document.getElementById('caption_prompt_text').value = captionPrompts[captionModeShown];
             if (data.overwrite !== undefined) document.getElementById('caption_overwrite').checked = !!data.overwrite;
@@ -1688,8 +1685,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         caption_mode: captionModeShown,
-                        caption_prompt: captionPrompts.normal.trim(),
-                        caption_edit_prompt: captionPrompts.edit.trim(),
+                        ...Object.fromEntries(Object.entries(CAPTION_PROMPT_KEYS).map(([m, key]) => [key, captionPrompts[m].trim()])),
                         overwrite: overwrite
                     })
                 });
