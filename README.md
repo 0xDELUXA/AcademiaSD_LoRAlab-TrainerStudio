@@ -1,17 +1,10 @@
-
-
-https://github.com/user-attachments/assets/8f3b6d3f-dbd5-45a4-8ae5-028e241c449a
-
 # AcademiaSD LoRAlab Trainer Studio
 
 <p align="center">
   <img src="assets/launcher_LoRAlab.jpg" alt="AcademiaSD LoRAlab Trainer Studio" width="900">
 </p>
 
-<p align="center">
-  <a href="assets/AcademiaSD_LoRAlab_TrainerStudio_github.mp4"><img src="assets/video_thumbnail.jpg" alt="Watch the tour video" width="640"></a><br>
-  <a href="assets/AcademiaSD_LoRAlab_TrainerStudio_github.mp4">▶ Watch the 1-minute tour</a>
-</p>
+https://github.com/user-attachments/assets/8f3b6d3f-dbd5-45a4-8ae5-028e241c449a
 
 <p align="center">
   <b>Train LoRAs for the latest image and video models on consumer NVIDIA GPUs (and AMD, experimental) — from 8 GB of VRAM.<br>
