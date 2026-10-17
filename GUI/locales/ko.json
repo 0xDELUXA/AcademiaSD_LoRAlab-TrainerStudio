@@ -1088,5 +1088,16 @@
   "ids not cited in the paragraph: {ids}": "단락에서 인용되지 않은 id: {ids}",
   "no valid JSON table": "유효한 JSON 표가 없습니다",
   "The dataset only has name_before / name_after pairs: training an EDIT LoRA. Set LoRA Type to Edit to use the preview reference image.": "데이터셋에 name_before / name_after 쌍만 있습니다: 편집 LoRA로 학습합니다. 미리보기 참조 이미지를 쓰려면 LoRA 유형을 편집으로 설정하세요.",
-  "The dataset mixes {n} before/after pairs with normal images: with LoRA Type normal the pairs train as loose images without their caption.": "데이터셋에 전/후 쌍 {n}개와 일반 이미지가 섞여 있습니다: LoRA 유형이 일반이면 쌍은 캡션 없이 개별 이미지로 학습됩니다."
+  "The dataset mixes {n} before/after pairs with normal images: with LoRA Type normal the pairs train as loose images without their caption.": "데이터셋에 전/후 쌍 {n}개와 일반 이미지가 섞여 있습니다: LoRA 유형이 일반이면 쌍은 캡션 없이 개별 이미지로 학습됩니다.",
+  "Text Encoder (Qwen3.5-9B)": "텍스트 인코더 (Qwen3.5-9B)",
+  "Only used by the Pre-Cache. BF16 gives exactly the embeddings ComfyUI uses with the original text encoder; INT8 and NF4 download less and run faster on big GPUs.": "Pre-Cache에서만 사용됩니다. BF16은 ComfyUI가 원본 텍스트 인코더로 사용하는 것과 정확히 같은 임베딩을 만듭니다. INT8과 NF4는 다운로드가 작고 큰 GPU에서 더 빠릅니다.",
+  "BF16 (exact, 24+ GB VRAM)": "BF16 (정확, VRAM 24GB 이상)",
+  "INT8 (~10% error, 14+ GB VRAM)": "INT8 (오차 ~10%, VRAM 14GB 이상)",
+  "NF4 (~25% error, 8+ GB VRAM)": "NF4 (오차 ~25%, VRAM 8GB 이상)",
+  "Base is the pre-trained model OpenMOSS recommends for LoRAs. SFT is Base fine-tuned for quality: nicer previews, and the turbo adapters were distilled from it. Both share the text encoder, so the same Pre-Cache works for either. The LoRA trains attention + MLP of the 42 blocks.": "Base는 OpenMOSS가 LoRA용으로 권장하는 사전 학습 모델입니다. SFT는 품질을 위해 미세 조정한 Base로, 미리보기가 더 보기 좋고 터보 어댑터도 SFT에서 증류되었습니다. 둘은 텍스트 인코더를 공유하므로 같은 Pre-Cache를 둘 다에 쓸 수 있습니다. LoRA는 42개 블록의 어텐션 + MLP를 학습합니다.",
+  "MOSS-Image Base (recommended for LoRAs)": "MOSS-Image Base (LoRA에 권장)",
+  "darask0/MOSS-Image_4-step_adapter_lora (4 steps, ~1.2 GB, downloaded on first use). Distilled from SFT; it also works on Base.": "darask0/MOSS-Image_4-step_adapter_lora (4단계, ~1.2GB, 처음 사용할 때 다운로드). SFT에서 증류되었지만 Base에서도 작동합니다.",
+  "MOSS-Image is a text-to-image model: one description per image, with any visible text copied exactly.": "MOSS-Image는 텍스트-이미지 모델입니다: 이미지마다 설명 하나, 보이는 글자는 그대로 옮겨 적습니다.",
+  "Training = the size of the image in the pre-cache. 768 / 1024 keep more detail but need more VRAM; 768 is a good starting point for MOSS-Image.": "Training = 프리캐시 안의 이미지 크기. 768 / 1024는 디테일을 더 살리지만 VRAM이 더 필요합니다. MOSS-Image는 768이 좋은 시작점입니다.",
+  "Text-to-image LoRAs (Base and SFT)": "텍스트-이미지 LoRA (Base 및 SFT)"
 }

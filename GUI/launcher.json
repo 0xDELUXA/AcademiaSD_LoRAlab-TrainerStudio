@@ -68,6 +68,13 @@
       "run": "Run_LoRAlab-Ernie.bat"
     },
     {
+      "id": "mossimage",
+      "name": "MOSS-Image",
+      "description": "Text-to-image LoRAs (Base and SFT)",
+      "image": "assets/mossimage/portada.jpg",
+      "run": "Run_LoRAlab-MossImage.bat"
+    },
+    {
       "id": "ideogram4",
       "name": "Ideogram 4",
       "description": "Image LoRAs",

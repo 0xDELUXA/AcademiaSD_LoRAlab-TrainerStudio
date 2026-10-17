@@ -1088,5 +1088,16 @@
   "ids not cited in the paragraph: {ids}": "IDs nicht im Absatz zitiert: {ids}",
   "no valid JSON table": "keine gültige JSON-Tabelle",
   "The dataset only has name_before / name_after pairs: training an EDIT LoRA. Set LoRA Type to Edit to use the preview reference image.": "Der Datensatz enthält nur name_before / name_after-Paare: es wird ein BEARBEITUNGS-LoRA trainiert. Stelle den LoRA-Typ auf Bearbeitung, um das Referenzbild der Vorschau zu nutzen.",
-  "The dataset mixes {n} before/after pairs with normal images: with LoRA Type normal the pairs train as loose images without their caption.": "Der Datensatz mischt {n} Vorher/Nachher-Paare mit normalen Bildern: mit LoRA-Typ normal werden die Paare als einzelne Bilder ohne ihre Beschriftung trainiert."
+  "The dataset mixes {n} before/after pairs with normal images: with LoRA Type normal the pairs train as loose images without their caption.": "Der Datensatz mischt {n} Vorher/Nachher-Paare mit normalen Bildern: mit LoRA-Typ normal werden die Paare als einzelne Bilder ohne ihre Beschriftung trainiert.",
+  "Text Encoder (Qwen3.5-9B)": "Text-Encoder (Qwen3.5-9B)",
+  "Only used by the Pre-Cache. BF16 gives exactly the embeddings ComfyUI uses with the original text encoder; INT8 and NF4 download less and run faster on big GPUs.": "Wird nur vom Pre-Cache verwendet. BF16 liefert genau die Embeddings, die ComfyUI mit dem originalen Text-Encoder nutzt; INT8 und NF4 sind kleiner im Download und auf großen GPUs schneller.",
+  "BF16 (exact, 24+ GB VRAM)": "BF16 (exakt, 24+ GB VRAM)",
+  "INT8 (~10% error, 14+ GB VRAM)": "INT8 (~10 % Fehler, 14+ GB VRAM)",
+  "NF4 (~25% error, 8+ GB VRAM)": "NF4 (~25 % Fehler, 8+ GB VRAM)",
+  "Base is the pre-trained model OpenMOSS recommends for LoRAs. SFT is Base fine-tuned for quality: nicer previews, and the turbo adapters were distilled from it. Both share the text encoder, so the same Pre-Cache works for either. The LoRA trains attention + MLP of the 42 blocks.": "Base ist das vortrainierte Modell, das OpenMOSS für LoRAs empfiehlt. SFT ist Base, auf Qualität feinabgestimmt: schönere Vorschauen, und die Turbo-Adapter wurden daraus destilliert. Beide teilen sich den Text-Encoder, derselbe Pre-Cache funktioniert also für beide. Das LoRA trainiert Attention + MLP der 42 Blöcke.",
+  "MOSS-Image Base (recommended for LoRAs)": "MOSS-Image Base (für LoRAs empfohlen)",
+  "darask0/MOSS-Image_4-step_adapter_lora (4 steps, ~1.2 GB, downloaded on first use). Distilled from SFT; it also works on Base.": "darask0/MOSS-Image_4-step_adapter_lora (4 Schritte, ~1,2 GB, wird beim ersten Mal heruntergeladen). Aus SFT destilliert; funktioniert auch auf Base.",
+  "MOSS-Image is a text-to-image model: one description per image, with any visible text copied exactly.": "MOSS-Image ist ein Text-zu-Bild-Modell: eine Beschreibung pro Bild, sichtbarer Text wird exakt übernommen.",
+  "Training = the size of the image in the pre-cache. 768 / 1024 keep more detail but need more VRAM; 768 is a good starting point for MOSS-Image.": "Training = die Bildgröße im Pre-Cache. 768 / 1024 erhalten mehr Details, brauchen aber mehr VRAM; 768 ist ein guter Startpunkt für MOSS-Image.",
+  "Text-to-image LoRAs (Base and SFT)": "Text-zu-Bild-LoRAs (Base und SFT)"
 }

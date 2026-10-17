@@ -42,6 +42,7 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 | **ERNIE-Image** | Image LoRAs (characters, objects, styles); supports rsLoRA, LoRA+ and LoKr | **Under 8 GB** (NF4; verified during training) |
 | **FLUX.2 Klein 9B** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) | 12 GB |
 | **FLUX.3 Image Klein** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) | 8 GB |
+| **MOSS-Image** | Image LoRAs (characters, objects, styles) on MOSS-Image Base or SFT; supports rsLoRA, LoRA+ and LoKr | **6 GB** (512²) / 8 GB |
 | **Ideogram 4** | Image LoRAs (characters, objects, styles), with JSON captions | 12 GB (16 GB for previews with CFG) |
 | **SDXL** | Image LoRAs for SDXL Base, Pony, Illustrious, NoobAI, Juggernaut, RealVis or your own SDXL checkpoint | **4 GB** (NF4) / 12 GB (BF16) |
 | **LTX-2.3** (also LTX-2.5) | Character and style LoRAs for the LTX video model, trained from images | 12 GB |
@@ -66,6 +67,8 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 
 **FLUX.3 Image Klein:** nuevo entrenador de LoRAs normales y de edición (antes → después) para FLUX.3 Image Klein Base, desde 8 GB de VRAM. El captioner escribe en los formatos propios de FLUX.3 (prosa detallada, y opcionalmente con tabla de cajas `<id>`; en edición, la instrucción con `<ref_image_0>`). Necesita la versión nueva de diffusers: ejecuta **`Update_LoRAlab-TrainerStudio.bat`** antes de abrirlo. Detalles en la sección *FLUX.3 Image Klein*.
 
+**MOSS-Image:** nuevo entrenador de LoRAs de imagen para MOSS-Image de OpenMOSS (Apache 2.0), sobre **Base** (el recomendado para LoRAs) o **SFT**, con la misma pre-caché para los dos. Entrena a 512² con menos de 6 GB de VRAM. El text encoder (Qwen3.5-9B) se elige en el pre-caché: BF16 exacto repartido entre GPU y RAM (por defecto), INT8 o NF4. Las previews pueden usar el adaptador turbo de 4 pasos de darask0 (unos 4 s por imagen en vez de 43 s). Detalles en la sección *MOSS-Image*.
+
 **LR Scheduler:** debajo del learning rate puedes elegir cómo cambia durante el entrenamiento: `cosine` (por defecto: sube durante el warmup y baja suavemente hasta el 10%), `constant` (el mismo LR de principio a fin, como el entrenador de Civitai), `constant_with_warmup`, `linear` o `cosine_with_restarts` (repite la curva tantas veces como indique *Ciclos*). Si no lo tocas, cada entrenador funciona igual que antes. Detalles en la sección *LR scheduler*.
 
 **Idiomas:** la interfaz y los mensajes de consola están en inglés, español, alemán, francés, portugués, italiano, japonés y coreano. Elige el idioma en el selector **🌍 Language** de la parte inferior del lanzador y pulsa **💾 Save settings**; por defecto está en inglés. Los prompts de los captions siguen siempre en inglés, que es lo que entienden los modelos. Detalles en la sección *Languages*.
@@ -89,6 +92,7 @@ Each trainer downloads **only what it uses**, already quantized. The table compa
 | **SDXL** | ~7 per model | — | **~7 per model** | New trainer: only the preset you pick is downloaded (one `.safetensors` file); your own checkpoint downloads nothing. |
 | **Ideogram 4** | 16.1 (NF4) | — | **16.1** | New trainer: the official NF4 release, which includes the unconditional transformer used only by the previews. It is downloaded from Unsloth's ungated mirror (same weights, no license gate or token needed); the Ideogram license still applies. |
 | **FLUX.2 Klein 9B** | 34.7 | — | **8.8** | New trainer: the 9B transformer (18.2 GB) and the Qwen3-8B text encoder (16.4 GB) in NF4 (4.9 GB + 3.8 GB; only the 28 text encoder layers Klein reads). |
+| **MOSS-Image** | 27.2 | — | **20.2 / 13.2 / 9.9** | New trainer: the 5B transformer of Base or SFT in NF4 (3.1 GB each; only the one you train on is downloaded) and the Qwen3.5-9B text encoder you pick: BF16 (exact, default) / INT8 / NF4. The optional turbo preview adapter adds 1.2 GB. |
 | **ERNIE-Image** | 31.6 | — | **~6.7** | New trainer: downloads the prepared NF4 transformer and Ministral 3B text encoder from `AcademiaSD/Ernie-NF4-for-LoRA-Training`. The optional prompt enhancer is not needed for training. |
 
 The automatic captioner adds, only the first time you use it: **nothing** for Krea 2 (it uses Krea 2's own text encoder), **5.5 GB** for Qwen-Image 2.1 when its text encoder is not already the NF4 one and for LTX-2.3, Z-Image, Anima, FLUX.2 Klein 9B and Ideogram 4 (Qwen3-VL-8B NF4, shared by all of them), and **8.9 GB** for MiniMax-H3 (Qwen3-VL-4B).
@@ -171,9 +175,9 @@ Under **LoRA Rank / Alpha**, the trainers have extra checkboxes. They change **h
 
 | Option | What it does | Trainers |
 | :--- | :--- | :--- |
-| **rsLoRA** | Scales the LoRA by `alpha/√rank` instead of `alpha/rank`, so high ranks keep learning. Ticking it lowers alpha to keep the same strength. | Z-Image, FLUX.2 Klein 9B, Qwen-Image 2.1, Krea 2, Anima, Ideogram 4, ERNIE-Image, SDXL |
+| **rsLoRA** | Scales the LoRA by `alpha/√rank` instead of `alpha/rank`, so high ranks keep learning. Ticking it lowers alpha to keep the same strength. | Z-Image, FLUX.2 Klein 9B, Qwen-Image 2.1, Krea 2, Anima, Ideogram 4, ERNIE-Image, MOSS-Image, SDXL |
 | **LoRA+** | The `B` matrix of every layer learns 16× faster than `A`: usually the same quality in fewer steps. Lower the LR if it burns early. | same as rsLoRA |
-| **LoKr** + **Factor** | Replaces LoRA with a Kronecker product (LyCORIS). Much smaller files (~3 MB instead of ~40 MB at rank 8), good for characters with small datasets, more sensitive to the LR. rsLoRA and LoRA+ turn off. | Z-Image, FLUX.2 Klein 9B, Qwen-Image 2.1, Krea 2, Anima, ERNIE-Image |
+| **LoKr** + **Factor** | Replaces LoRA with a Kronecker product (LyCORIS). Much smaller files (~3 MB instead of ~40 MB at rank 8), good for characters with small datasets, more sensitive to the LR. rsLoRA and LoRA+ turn off. | Z-Image, FLUX.2 Klein 9B, Qwen-Image 2.1, Krea 2, Anima, ERNIE-Image, MOSS-Image |
 
 - The exported file is a **standard LoRA / LyCORIS file** that ComfyUI and Forge load as usual (with rsLoRA, the alpha is converted so it acts exactly as trained).
 - **Send to Models** and **⬇ Download LoRA** add **`_rs`**, **`_plus`** or **`_lokr`** to the name, taken from the file's own metadata, so you always know how it was trained. The *Final LoRA Filename* field shows the suffix as you tick the boxes.
@@ -360,6 +364,22 @@ All times were measured on an RTX 5080 16 GB.
 | Previews | 1024², 28 steps with CFG: ~35 s, ~3.7 GB |
 | Text encoder (pre-cache only) | ~8.3 GB in BF16; the part that does not fit in VRAM runs from RAM |
 
+### MOSS-Image — image LoRAs for MOSS-Image Base and SFT
+
+- Trains on **MOSS-Image Base** (`OpenMOSS-Team/MOSS-Image-Base`, the model OpenMOSS publishes for LoRA training) or **MOSS-Image SFT** (`OpenMOSS-Team/MOSS-Image-SFT`, Base fine-tuned for quality), chosen with **Base Model**. Both share the text encoder and the VAE, so the same pre-cache works for either.
+- The 5B single-stream transformer is **NF4** (3.1 GB instead of 10.2 GB). The LoRA trains attention (q, k, v, o) and MLP of the 42 blocks and is exported with the original layer names (`diffusion_model.layers.N.proj.*`), the ones of OpenMOSS's ComfyUI node.
+- **Text encoder (pre-cache only):** Qwen3.5-9B, the same modes as Qwen-Image 2.1: **BF16 CPU Offload** (default; exact, the part that does not fit in VRAM runs from RAM), **BF16** (24+ GB), **INT8** (~7-14 % error, 14+ GB) or **NF4** (~20-30 % error, 8+ GB). Error = relative difference of the embeddings against BF16, measured. Only the version you pick is downloaded.
+- Training recipe from OpenMOSS's technical report: velocity target, logit-normal noise sampling of their last pretraining stage (μ −1.09, s 0.95, cut at σ 0.95, 1 % uniform). The text encoder stays frozen, as they recommend.
+- **Captioner** (Qwen3-VL-8B NF4, shared): detailed prose following OpenMOSS's own recaptioning guide, with any visible text copied exactly, in double quotes, and its layout described.
+- **Previews:** 28 steps / CFG 3 with block 22 skipped in the negative branch, like the official pipeline. **Turbo LoRA (Fast Previews)** uses [darask0's 4-step adapter](https://huggingface.co/darask0/MOSS-Image_4-step_adapter_lora) (no CFG, ~1.2 GB, downloaded on first use). It is not a regular LoRA: it is added unmerged in FP32, with its own time embedding and its own "data-space" sampler, so it does not touch the LoRA being trained. It was distilled from SFT and also works on Base.
+- Default settings: 500 steps, LR 0.0004, cosine with 100 warmup steps, rank 8 / alpha 8.
+
+| Measured on an RTX 5080 | |
+| :--- | :--- |
+| Training | 512², rank 8: ~1.0 s/step, under 6 GB |
+| Previews | 1024²: 28 steps with CFG ~43 s · Turbo, 4 steps ~4 s |
+| Text encoder (pre-cache only) | BF16 ~17 GB (the part that does not fit in VRAM runs from RAM) · INT8 ~10 GB · NF4 ~6.5 GB |
+
 ### Ideogram 4 — image LoRAs
 
 - Trains on the official **Ideogram 4 NF4** release (9.3B, diffusers). It is a single-stream transformer: text and image tokens share one sequence.
@@ -524,7 +544,7 @@ AcademiaSD_LoRAlab-TrainerStudio/
 └── settings/                         # Your settings, HF token, network.json and ui.json (created on first use, never uploaded)
 ```
 
-Models (`Krea-2-NF4`, `LTX23-NF4`, `MiniMax-H3-NF4`, `Qwen-Image21-NF4`, `Z-Image_NF4`, `Anima-Base`, `FLUX.2-Klein-9B_NF4`, `FLUX.3-Image-Klein_NF4`, `Ideogram4-NF4`, `SDXL-Models`, captioners), caches and LoRA outputs are created next to these folders on first use.
+Models (`Krea-2-NF4`, `LTX23-NF4`, `MiniMax-H3-NF4`, `Qwen-Image21-NF4`, `Z-Image_NF4`, `Anima-Base`, `FLUX.2-Klein-9B_NF4`, `FLUX.3-Image-Klein_NF4`, `Ideogram4-NF4`, `MOSS-Image-NF4`, `SDXL-Models`, captioners), caches and LoRA outputs are created next to these folders on first use.
 
 ---
 
@@ -542,6 +562,7 @@ The code is released under the **MIT License**. The models keep their own licens
 | Anima | CircleStone Labs Non-Commercial License (plus the NVIDIA Open Model License for Cosmos). Images you generate can be used commercially |
 | FLUX.2 Klein 9B (and the Klein 9B turbo preview LoRA) | FLUX Non-Commercial License — non-commercial |
 | FLUX.3 Image Klein | FLUX Kommunity License (see the model card) |
+| MOSS-Image Base and SFT (and darask0's 4-step turbo adapter) | Apache 2.0 |
 | Ideogram 4 | Ideogram Non-Commercial Model Agreement — non-commercial; LoRAs are model derivatives under the same license |
 | SDXL Base 1.0, RealVisXL V5.0 | CreativeML Open RAIL++-M |
 | Pony Diffusion V6 XL, Illustrious XL v0.1, NoobAI-XL 1.1 | Fair AI Public License 1.0-SD |
@@ -573,9 +594,10 @@ Code adapted or copied from other projects, and the work it builds on:
 | [LyCORIS](https://github.com/KohakuBlueleaf/LyCORIS) by KohakuBlueleaf | The LoKr method in `scripts/lora_options.py`: Kronecker factorization, initialization and `lokr_*` key layout (reimplemented for NF4 layers) | Apache-2.0 |
 | [rsLoRA](https://arxiv.org/abs/2312.03732) (Kalajdzievski) and [LoRA+](https://arxiv.org/abs/2402.12354) (Hayou, Ghosh, Yu) | The `alpha/√rank` scaling and the separate learning rate for `lora_B` | papers |
 | [Diffusers FLUX.3 Klein LoRA trainer](https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/train_dreambooth_lora_flux3_klein.py) | FLUX.3 Klein training recipe: timestep shift, position ids, text window and LoRA targets, followed in `scripts/2_train_lora_flux3klein.py` | Apache-2.0 |
+| [MOSS-Image](https://github.com/OpenMOSS/MOSS-Image) by the OpenMOSS Team | The MOSS-Image transformer of `pipeline_moss_image.py`, adapted in `scripts/moss_image_model.py` (NF4 layers, gradient checkpointing); prompt encoding, preview guidance, training noise schedule (technical report) and caption guide | Apache-2.0 |
 | [kohya-ss sd-scripts](https://github.com/kohya-ss/sd-scripts) | `ss_*` LoRA metadata convention, SDXL LoRA key format and 75-token caption chunking | Apache-2.0 |
 
-Models and LoRAs downloaded at run time (not part of this repository): MelBandRoFormer weights by [Kijai](https://huggingface.co/Kijai/MelBandRoFormer_comfy), the Klein 9B turbo preview LoRA by [kalle07](https://huggingface.co/kalle07/FLUX.2-klein-9B-turbo-lora-set), the Qwen-Image 2.1 turbo LoRA by [Viggle](https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo), Z-Image-Fun-Lora-Distill by [Alibaba PAI](https://huggingface.co/alibaba-pai/Z-Image-Fun-Lora-Distill), and the ungated Ideogram 4 NF4 mirror by [Unsloth](https://huggingface.co/unsloth/ideogram-4-nf4-diffusers). Thanks to all of them.
+Models and LoRAs downloaded at run time (not part of this repository): MelBandRoFormer weights by [Kijai](https://huggingface.co/Kijai/MelBandRoFormer_comfy), the Klein 9B turbo preview LoRA by [kalle07](https://huggingface.co/kalle07/FLUX.2-klein-9B-turbo-lora-set), the Qwen-Image 2.1 turbo LoRA by [Viggle](https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo), the MOSS-Image 4-step adapter by [darask0](https://huggingface.co/darask0/MOSS-Image_4-step_adapter_lora) (built on the 8-step adapter by [lodestones](https://huggingface.co/lodestones/MOSS-Image-SFT-8-steps-dmd)), Z-Image-Fun-Lora-Distill by [Alibaba PAI](https://huggingface.co/alibaba-pai/Z-Image-Fun-Lora-Distill), and the ungated Ideogram 4 NF4 mirror by [Unsloth](https://huggingface.co/unsloth/ideogram-4-nf4-diffusers). Thanks to all of them.
 
 ## 💬 Community & Support
 
