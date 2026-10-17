@@ -5,6 +5,11 @@
 </p>
 
 <p align="center">
+  <a href="assets/AcademiaSD_LoRAlab_TrainerStudio_github.mp4"><img src="assets/video_thumbnail.jpg" alt="Watch the tour video" width="640"></a><br>
+  <a href="assets/AcademiaSD_LoRAlab_TrainerStudio_github.mp4">▶ Watch the 1-minute tour</a>
+</p>
+
+<p align="center">
   <b>Train LoRAs for the latest image and video models on consumer NVIDIA GPUs (and AMD, experimental) — from 8 GB of VRAM.<br>
   One installation, one Python environment, one launcher. Every trainer in one place.</b>
 </p>
@@ -367,7 +372,7 @@ All times were measured on an RTX 5080 16 GB.
 ### MOSS-Image — image LoRAs for MOSS-Image Base and SFT
 
 - Trains on **MOSS-Image Base** (`OpenMOSS-Team/MOSS-Image-Base`, the model OpenMOSS publishes for LoRA training) or **MOSS-Image SFT** (`OpenMOSS-Team/MOSS-Image-SFT`, Base fine-tuned for quality), chosen with **Base Model**. Both share the text encoder and the VAE, so the same pre-cache works for either.
-- The 5B single-stream transformer is **NF4** (3.1 GB instead of 10.2 GB). The LoRA trains attention (q, k, v, o) and MLP of the 42 blocks and is exported with the original layer names (`diffusion_model.layers.N.proj.*`), the ones of OpenMOSS's ComfyUI node.
+- The 5B single-stream transformer is **NF4** (3.1 GB instead of 10.2 GB). The LoRA trains attention (q, k, v, o) and MLP of the 42 blocks and is exported with the original layer names (`diffusion_model.layers.N.proj.*`), which ComfyUI (nightly, with native MOSS-Image support) loads with the standard LoRA loader.
 - **Text encoder (pre-cache only):** Qwen3.5-9B, the same modes as Qwen-Image 2.1: **BF16 CPU Offload** (default; exact, the part that does not fit in VRAM runs from RAM), **BF16** (24+ GB), **INT8** (~7-14 % error, 14+ GB) or **NF4** (~20-30 % error, 8+ GB). Error = relative difference of the embeddings against BF16, measured. Only the version you pick is downloaded.
 - Training recipe from OpenMOSS's technical report: velocity target, logit-normal noise sampling of their last pretraining stage (μ −1.09, s 0.95, cut at σ 0.95, 1 % uniform). The text encoder stays frozen, as they recommend.
 - **Captioner** (Qwen3-VL-8B NF4, shared): detailed prose following OpenMOSS's own recaptioning guide, with any visible text copied exactly, in double quotes, and its layout described.
