@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/8f3b6d3f-dbd5-45a4-8ae5-028e241c449a
+
 # AcademiaSD LoRAlab Trainer Studio
 
 <p align="center">
