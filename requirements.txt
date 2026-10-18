@@ -17,6 +17,7 @@ diffusers @ https://github.com/huggingface/diffusers/archive/d42ebf9c6e0b46103b7
 transformers>=5.17
 peft
 accelerate
+diffsynth>=2.1.9
 safetensors
 huggingface_hub
 

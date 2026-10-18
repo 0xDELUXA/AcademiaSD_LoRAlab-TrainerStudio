@@ -1114,5 +1114,6 @@
   "Qwen-Image-Edit-2511 (editing)": "Qwen-Image-Edit-2511 (편집)",
   "The model the LoRA is trained on, and the one to use it with in ComfyUI. Qwen-Image-2512 generates from text; Qwen-Image-Edit-2511 edits an image. They are separate fine-tunes of Qwen-Image, so a LoRA trained on one is not guaranteed to work on the other. An edit LoRA (before / after pairs) always uses Edit-2511.": "LoRA를 학습할 모델이자 ComfyUI에서 함께 사용할 모델입니다. Qwen-Image-2512는 텍스트로 생성하고, Qwen-Image-Edit-2511은 이미지를 편집합니다. 둘은 Qwen-Image의 별도 파인튜닝이므로 한쪽에서 학습한 LoRA가 다른 쪽에서 작동한다는 보장은 없습니다. 편집 LoRA(전 / 후 쌍)는 항상 Edit-2511을 사용합니다.",
   "Writes one .txt per image with Qwen3-VL-8B (NF4, ~5.5 GB VRAM), with the trigger word first. It is shared by every trainer: ~5 GB are downloaded only the first time.": "Qwen3-VL-8B(NF4, VRAM 약 5.5GB)로 이미지마다 .txt를 하나씩 쓰고 트리거 단어를 맨 앞에 둡니다. 모든 트레이너가 공유하며 약 5GB를 처음 한 번만 다운로드합니다.",
-  "The cache has before/after pairs: an edit LoRA needs Qwen-Image-Edit-2511 as the base model.": "캐시에 전/후 쌍이 있습니다. 편집 LoRA에는 기본 모델로 Qwen-Image-Edit-2511이 필요합니다."
+  "The cache has before/after pairs: an edit LoRA needs Qwen-Image-Edit-2511 as the base model.": "캐시에 전/후 쌍이 있습니다. 편집 LoRA에는 기본 모델로 Qwen-Image-Edit-2511이 필요합니다.",
+  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "저장된 체크포인트가 이 LoRA 설정(rank, LoKr 등)과 맞지 않습니다. 새 학습을 시작합니다."
 }

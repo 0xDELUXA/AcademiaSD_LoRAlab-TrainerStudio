@@ -40,6 +40,13 @@
       "run": "Run_LoRAlab-QwenImage2512.bat"
     },
     {
+      "id": "boogu",
+      "name": "Boogu Image Edit",
+      "description": "Image-edit LoRAs",
+      "image": "assets/boogu/portada.jpg",
+      "run": "Run_LoRAlab-Boogu.bat"
+    },
+    {
       "id": "zimage",
       "name": "Z-Image",
       "description": "Image LoRAs (also Z-Image-Turbo)",

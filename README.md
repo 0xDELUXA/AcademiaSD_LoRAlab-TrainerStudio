@@ -40,6 +40,7 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 | **Qwen-Image 2.1** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) | 8 GB |
 | **Qwen-Image 2512 / Edit 2511** | Image LoRAs on Qwen-Image-2512 **and edit LoRAs** on Qwen-Image-Edit-2511 (before → after); 20B in NF4 with block swap | **~4 GB** (512², measured) / 8 GB (edit at 1024²) |
 | **Krea 2** | Image LoRAs (characters, objects, styles) for Krea 2 Raw and Turbo | 8 GB |
+| **Boogu Image Edit 0.1** | Edit LoRAs (before → after) and image LoRAs on Boogu-Image-0.1-Edit | **10 GB** (512², ~8 GB measured) |
 | **Z-Image** | Image LoRAs (characters, objects, styles) for Z-Image and Z-Image-Turbo | 8 GB |
 | **Anima** | Anime and illustration LoRAs (characters, styles) | **4 GB** (NF4) / 6 GB (BF16) |
 | **ERNIE-Image** | Image LoRAs (characters, objects, styles); supports rsLoRA, LoRA+ and LoKr | **Under 8 GB** (NF4; verified during training) |
@@ -306,6 +307,20 @@ All times were measured on an RTX 5080 16 GB.
 | Image 512², all 60 blocks on GPU | 13 GB | 1.8 |
 
 Copying the blocks from RAM costs little on a x16 slot (2.2 against 1.8 s/step at 512²); on a x4 slot or a riser it is several times slower.
+
+### Boogu Image Edit 0.1 — edit LoRAs
+
+> **New:** full runs (pre-cache, training, previews, stop and resume) verified with an edit dataset and with normal images.
+
+- Trains on **Boogu-Image-0.1-Edit** (`Boogu/Boogu-Image-0.1-Edit`, Apache 2.0) with the training code of [DiffSynth-Studio](https://github.com/modelscope/DiffSynth-Studio), which is part of the Studio's regular dependencies. The first Pre-Cache downloads the NF4 model once (~11 GB, [AcademiaSD/Boogu-Image-Edit-NF4-for-LoRA-Training](https://huggingface.co/AcademiaSD/Boogu-Image-Edit-NF4-for-LoRA-Training)): transformer and Qwen3-VL-8B text encoder in NF4, ~5 GB each.
+- **Edit LoRAs:** each sample is `name_before.ext`, `name_after.ext` and `name.txt` (the instruction). The before image goes to the text encoder (~384²) and, as a clean latent at the same scale as the target, next to it in the image sequence, as ComfyUI's `TextEncodeBooguEdit` does. **Normal LoRAs** (one image + caption) also work.
+- The LoRA trains the attention layers and is exported as `diffusion_model.*`, which ComfyUI's native Boogu support loads with the standard LoRA loader. rsLoRA, LoRA+ and LoKr are available.
+- **Previews:** 30 steps / CFG 4 on the preview reference image; the negative is empty and does not see the image, as in ComfyUI.
+- Default settings: 500 steps, LR 0.0002, cosine, rank 16 / alpha 16.
+
+| Measured on an RTX 5080 (rank 16, edit, 512²) | |
+| :--- | :--- |
+| Training | ~2.1 s/step, ~7.8 GB (8.3 GB with previews) |
 
 ### Krea 2 — image LoRAs for Krea 2 Raw and Turbo
 
@@ -591,6 +606,7 @@ The code is released under the **MIT License**. The models keep their own licens
 | FLUX.2 Klein 9B (and the Klein 9B turbo preview LoRA) | FLUX Non-Commercial License — non-commercial |
 | FLUX.3 Image Klein | FLUX Kommunity License (see the model card) |
 | MOSS-Image Base and SFT (and darask0's 4-step turbo adapter) | Apache 2.0 |
+| Boogu-Image-0.1-Edit | Apache 2.0 |
 | Ideogram 4 | Ideogram Non-Commercial Model Agreement — non-commercial; LoRAs are model derivatives under the same license |
 | SDXL Base 1.0, RealVisXL V5.0 | CreativeML Open RAIL++-M |
 | Pony Diffusion V6 XL, Illustrious XL v0.1, NoobAI-XL 1.1 | Fair AI Public License 1.0-SD |
@@ -613,6 +629,7 @@ Code adapted or copied from other projects, and the work it builds on:
 | :--- | :--- | :--- |
 | [Fizgig](https://github.com/shootthesound/Fizgig) by [@shootthesound](https://github.com/shootthesound) | MiniMax H3 sigma sampling (`sample_sigmas`) and the video VAE encoder (`MiniMaxH3VideoVAEEncoder`), adapted | Apache-2.0 |
 | [ComfyUI](https://github.com/Comfy-Org/ComfyUI) | Origin of the MiniMax H3 video VAE that Fizgig ported; native layer names and LoRA layouts the exports follow | GPL-3.0 |
+| [DiffSynth-Studio](https://github.com/modelscope/DiffSynth-Studio) by ModelScope | Boogu Image Edit model, pipeline and training module; `scripts/boogu_diffsynth_train.py` is adapted from its `examples/boogu_image/model_training/train.py` | Apache-2.0 |
 | [Diffusers](https://github.com/huggingface/diffusers) | Model classes and pipelines; MiniMax H3 audio positions copied from `build_packed_sequence`; Qwen-Image prompt templates, latent packing and edit sizes from `QwenImagePipeline` / `QwenImageEditPlusPipeline`, followed in `scripts/qwen_image2512_model.py` | Apache-2.0 |
 | [Mel-Band-Roformer-Vocal-Model](https://github.com/KimberleyJensen/Mel-Band-Roformer-Vocal-Model) by KimberleyJensen | `scripts/melband/mel_band_roformer.py`, vendored with its source header (vocal separation for MiniMax H3 audio datasets) | not stated |
 | [BS-RoFormer](https://github.com/lucidrains/BS-RoFormer) by lucidrains | Architecture the Mel-Band RoFormer code derives from | MIT |

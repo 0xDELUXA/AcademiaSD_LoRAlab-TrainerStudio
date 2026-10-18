@@ -114,6 +114,11 @@ class LoKrLinear(torch.nn.Module):
         torch.nn.init.kaiming_uniform_(self.lokr_w1, a=math.sqrt(5))
         torch.nn.init.kaiming_uniform_(self.lokr_w2_a, a=math.sqrt(5))
 
+    @property
+    def weight(self):
+        # El peso de la capa base, como las capas de PEFT: hay modelos que lo consultan (dispositivo, dtype).
+        return self.base.weight
+
     def forward(self, x, *args, **kwargs):
         out = self.base(x, *args, **kwargs)
         X = x.to(self.lokr_w1.dtype).reshape(*x.shape[:-1], self.c, self.d)
@@ -138,7 +143,8 @@ class LoKrModel(torch.nn.Module):
         for name in target_modules:
             parent_name, _, child = name.rpartition(".")
             parent = transformer.get_submodule(parent_name) if parent_name else transformer
-            setattr(parent, child, LoKrLinear(getattr(parent, child), rank, alpha, factor).to(transformer.device))
+            # El dispositivo del primer parámetro: no todos los modelos tienen .device (el DiT de DiffSynth no).
+            setattr(parent, child, LoKrLinear(getattr(parent, child), rank, alpha, factor).to(next(transformer.parameters()).device))
         self.config = {"r": rank, "lora_alpha": alpha, "lokr_factor": factor}
 
     def forward(self, *args, **kwargs):
