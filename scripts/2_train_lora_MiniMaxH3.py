@@ -160,6 +160,9 @@ DEFAULTS = {
     # rank 8 is thin for identity in a 33B DiT; 16 is the sweet spot, 32 if VRAM allows.
     "lora_rank": 16,
     "lora_alpha": 16,
+    "use_rslora": False,
+    "use_loraplus": False,
+    "loraplus_ratio": 16.0,
     "weight_decay": 0.0,
 
     # --- Optimizador --------------------------------------------------------
@@ -997,6 +1000,11 @@ OVERFIT_PROBE_EVERY = int(cfg_get("overfit_probe_every", DEFAULTS["overfit_probe
 WARMUP_STEPS = int(cfg_get("warmup_steps", DEFAULTS["warmup_steps"]))
 LORA_RANK = int(cfg_get("lora_rank", DEFAULTS["lora_rank"]))
 LORA_ALPHA = int(cfg_get("lora_alpha", DEFAULTS["lora_alpha"]))
+# rsLoRA escala el LoRA por alpha/√rank en vez de alpha/rank; LoRA+ da a lora_B un LR ratio veces mayor.
+# Las dos cambian cómo aprende, no el formato: el LoRA exportado es estándar (la escala va horneada en lora_B).
+USE_RSLORA = bool(cfg_get("use_rslora", DEFAULTS["use_rslora"]))
+USE_LORAPLUS = bool(cfg_get("use_loraplus", DEFAULTS["use_loraplus"]))
+LORAPLUS_RATIO = float(cfg_get("loraplus_ratio", DEFAULTS["loraplus_ratio"]))
 WEIGHT_DECAY = float(cfg_get("weight_decay", DEFAULTS["weight_decay"]))
 
 
@@ -1136,6 +1144,7 @@ log_print("  Total Steps         : {}".format(TOTAL_STEPS))
 log_print("  Learning Rate       : {}".format(LR))
 log_print("  LR Scheduler        : {}".format(lora_options.lr_scheduler_label(LR_SCHEDULER, WARMUP_STEPS, LR_CYCLES)))
 log_print("  LoRA Rank/Alpha     : {}/{}".format(LORA_RANK, LORA_ALPHA))
+log_print("  rsLoRA / LoRA+      : {} / {}".format("on" if USE_RSLORA else "off", "x{:g}".format(LORAPLUS_RATIO) if USE_LORAPLUS else "off"))
 log_print("  Optimizer           : {}".format(
     "AdamW (fp32)" if OPTIMIZER_TYPE == "adamw" else "PagedAdamW8bit (8-bit)"))
 log_print("  Batch / Grad Accum  : {}/{}".format(BATCH_SIZE, GRAD_ACCUM_STEPS))
@@ -5766,7 +5775,7 @@ def build_lora_metadata(prefix, scaling, extra=None):
         # --- receta / recipe ---
         "ss_network_module": "peft.LoraModel",
         "ss_network_dim": str(LORA_RANK),
-        "ss_network_alpha": str(LORA_ALPHA),
+        "ss_network_alpha": str(lora_options.export_alpha(LORA_ALPHA, LORA_RANK, USE_RSLORA)),
         "ss_learning_rate": str(LR),
         "ss_lr_scheduler": LR_SCHEDULER,
         "ss_max_train_steps": str(TOTAL_STEPS),
@@ -5774,6 +5783,16 @@ def build_lora_metadata(prefix, scaling, extra=None):
         "ss_seed": str(SEED),
         "ss_mixed_precision": str(LORA_DTYPE_STR),
     }
+
+    # La GUI lee estas claves al exportar o descargar para poner el sufijo _rs / _plus al nombre.
+    if USE_RSLORA:
+        meta["rslora"] = "true"
+        meta["rslora_train_alpha"] = LORA_ALPHA
+    if USE_LORAPLUS:
+        meta["loraplus_ratio"] = LORAPLUS_RATIO
+    if USE_RSLORA or USE_LORAPLUS:
+        meta["ss_network_args"] = json.dumps({"rslora": USE_RSLORA,
+                                              "loraplus_lr_ratio": LORAPLUS_RATIO if USE_LORAPLUS else None})
 
     trigger = (TRIGGER_WORD or "").strip()
     if trigger:
@@ -5814,7 +5833,7 @@ def save_lora(model, path, prefix=None):
     if prefix is None:
         prefix = ""
 
-    scaling = float(LORA_ALPHA) / float(max(1, LORA_RANK))
+    scaling = float(LORA_ALPHA) / (math.sqrt(LORA_RANK) if USE_RSLORA else float(max(1, LORA_RANK)))
 
     # 1) Recolectar todas las keys LoRA en crudo (nombres "diffusers"), con el
     #    scaling ya horneado en lora_B, en fp32 para no perder precisión en la
@@ -6602,6 +6621,9 @@ def _runtime_cache_key():
             "output_dir": OUTPUT_DIR,
             "lora_rank": LORA_RANK,
             "lora_alpha": LORA_ALPHA,
+            "use_rslora": USE_RSLORA,
+            "use_loraplus": USE_LORAPLUS,
+            "loraplus_ratio": LORAPLUS_RATIO,
             "lora_only_attn": LORA_ONLY_ATTN,
             # Cambiar el dtype de los pesos LoRA o los modulos objetivo obliga a
             # reconstruir modelo y optimizador: sin esto, un A/B desde la GUI
@@ -6765,6 +6787,7 @@ def _ensure_train_runtime():
         bias="none",
         task_type=None,
         init_lora_weights=True,
+        use_rslora=USE_RSLORA,
     )
 
     model = get_peft_model(transformer, lora_config)
@@ -6875,11 +6898,18 @@ def _ensure_train_runtime():
         flush=True,
     )
 
+    # LoRA+: en cada optimizador, lora_B en su propio grupo con el LR multiplicado.
+    def opt_params(device_type, params):
+        if not USE_LORAPLUS:
+            return params
+        return lora_options.loraplus_groups(
+            ((n, p) for n, p in model.named_parameters() if p.device.type == device_type), LORAPLUS_RATIO)
+
     gpu_optimizer = None
     if trainable_gpu:
         if OPTIMIZER_TYPE == "adamw8bit":
             gpu_optimizer = bnb.optim.PagedAdamW8bit(
-                trainable_gpu,
+                opt_params("cuda", trainable_gpu),
                 lr=LR,
                 weight_decay=WEIGHT_DECAY,
             )
@@ -6890,7 +6920,7 @@ def _ensure_train_runtime():
             )
         else:
             gpu_optimizer = torch.optim.AdamW(
-                trainable_gpu,
+                opt_params("cuda", trainable_gpu),
                 lr=LR,
                 weight_decay=WEIGHT_DECAY,
             )
@@ -6902,7 +6932,7 @@ def _ensure_train_runtime():
     cpu_optimizer = None
     if trainable_cpu:
         cpu_optimizer = torch.optim.AdamW(
-            trainable_cpu,
+            opt_params("cpu", trainable_cpu),
             lr=LR,
             weight_decay=WEIGHT_DECAY,
         )
@@ -6960,6 +6990,21 @@ def _ensure_train_runtime():
                     resume_compatible = False
                     log_print("=" * 65)
                     log_print("[!] Checkpoint INCOMPATIBLE: rank guardado={}, actual={}.".format(saved_r, LORA_RANK))
+                    log_print("=" * 65)
+                # El modelo y el optimizador ya están construidos con las opciones de la GUI: un
+                # checkpoint con otras (rsLoRA en adapter_config.json, LoRA+ en lora_options.json)
+                # no encaja, igual que un rank distinto. Sin lora_options.json se entrenó sin LoRA+.
+                opts_file = os.path.join(RESUME_DIR, "lora_options.json")
+                opts = {}
+                if os.path.exists(opts_file):
+                    with open(opts_file, "r", encoding="utf-8") as f:
+                        opts = json.load(f)
+                saved_opts = (bool(acfg.get("use_rslora", False)), bool(opts.get("use_loraplus", False)))
+                if resume_compatible and saved_opts != (USE_RSLORA, USE_LORAPLUS):
+                    resume_compatible = False
+                    log_print("=" * 65)
+                    log_print("[!] Checkpoint INCOMPATIBLE: rsLoRA/LoRA+ guardados={}/{}, actuales={}/{}.".format(
+                        saved_opts[0], saved_opts[1], USE_RSLORA, USE_LORAPLUS))
                     log_print("=" * 65)
             except Exception:
                 pass
@@ -7255,6 +7300,7 @@ def reload_runtime_config():
     global DROP_AUDIO_ROWS_WHEN_UNUSED, ALLOC_PROBE
     global LR, MIN_LR_RATIO, WARMUP_STEPS, TOTAL_STEPS, GRAD_ACCUM_STEPS
     global LORA_RANK, LORA_ALPHA, MAX_GRAD_NORM, WEIGHT_DECAY, SAVE_EVERY
+    global USE_RSLORA, USE_LORAPLUS, LORAPLUS_RATIO
     global MAX_TEXT_TOKENS, USE_AUDIO_LOSS, OPTIMIZER_TYPE
     global VRAM_BUDGET_GB, VRAM_SWAP_GB, VRAM_HEADROOM_GB
     global VRAM_TRAINING_OVERHEAD_GB, VRAM_HARD_CAP_ENABLED, VRAM_EMPTY_CACHE_EVERY
@@ -7323,6 +7369,9 @@ def reload_runtime_config():
     GRAD_ACCUM_STEPS = max(1, int(cfg_get("grad_accum_steps", DEFAULTS["grad_accum_steps"])))
     LORA_RANK = int(cfg_get("lora_rank", DEFAULTS["lora_rank"]))
     LORA_ALPHA = int(cfg_get("lora_alpha", DEFAULTS["lora_alpha"]))
+    USE_RSLORA = bool(cfg_get("use_rslora", DEFAULTS["use_rslora"]))
+    USE_LORAPLUS = bool(cfg_get("use_loraplus", DEFAULTS["use_loraplus"]))
+    LORAPLUS_RATIO = float(cfg_get("loraplus_ratio", DEFAULTS["loraplus_ratio"]))
     MAX_GRAD_NORM = float(cfg_get("max_grad_norm", DEFAULTS["max_grad_norm"]))
     WEIGHT_DECAY = float(cfg_get("weight_decay", DEFAULTS["weight_decay"]))
     OPTIMIZER_TYPE = _normalize_optimizer_type(
@@ -7602,6 +7651,8 @@ def train_minimaxh3():
         weights_ok = False
         try:
             model.save_pretrained(RESUME_DIR)
+            with open(os.path.join(RESUME_DIR, "lora_options.json"), "w", encoding="utf-8") as f:
+                json.dump({"use_loraplus": USE_LORAPLUS, "loraplus_ratio": LORAPLUS_RATIO}, f)
             weights_ok = True
         except Exception as e:
             log_print("[CKPT][ERROR] " + t("Could not save the LoRA weights: {0}", e),
@@ -8719,7 +8770,7 @@ def train_minimaxh3():
                 current_lr = lr_at(step)
 
                 for group in optimizer.param_groups:
-                    group["lr"] = current_lr
+                    group["lr"] = current_lr * group.get("lr_mult", 1.0)
 
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)

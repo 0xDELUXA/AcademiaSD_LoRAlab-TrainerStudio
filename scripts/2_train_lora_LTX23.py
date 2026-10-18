@@ -98,6 +98,9 @@ DEFAULTS = {
 
     "lora_rank": 32,
     "lora_alpha": 32,
+    "use_rslora": False,
+    "use_loraplus": False,
+    "loraplus_ratio": 16.0,
     "weight_decay": 0.0,
     "max_grad_norm": 1.0,
 
@@ -197,6 +200,11 @@ LR_CYCLES = int(cfg_get("lr_cycles", DEFAULTS["lr_cycles"]))
 
 LORA_RANK = int(cfg_get("lora_rank", DEFAULTS["lora_rank"]))
 LORA_ALPHA = int(cfg_get("lora_alpha", DEFAULTS["lora_alpha"]))
+# rsLoRA escala el LoRA por alpha/√rank en vez de alpha/rank; LoRA+ da a lora_B un LR ratio veces mayor.
+# Las dos cambian cómo aprende, no el formato: el LoRA exportado es estándar (la escala va horneada en lora_B).
+USE_RSLORA = bool(cfg_get("use_rslora", DEFAULTS["use_rslora"]))
+USE_LORAPLUS = bool(cfg_get("use_loraplus", DEFAULTS["use_loraplus"]))
+LORAPLUS_RATIO = float(cfg_get("loraplus_ratio", DEFAULTS["loraplus_ratio"]))
 WEIGHT_DECAY = float(cfg_get("weight_decay", DEFAULTS["weight_decay"]))
 MAX_GRAD_NORM = float(cfg_get("max_grad_norm", DEFAULTS["max_grad_norm"]))
 
@@ -277,6 +285,7 @@ print(f"  {t('Total Steps'):<28}: {TOTAL_STEPS}")
 print(f"  {t('Learning Rate'):<28}: {LR}")
 print(f"  {t('LR Scheduler'):<28}: {lora_options.lr_scheduler_label(LR_SCHEDULER, WARMUP_STEPS, LR_CYCLES)}")
 print("  LoRA Rank/Alpha             : {}/{}".format(LORA_RANK, LORA_ALPHA))
+print("  rsLoRA / LoRA+              : {} / {}".format("on" if USE_RSLORA else "off", "x{:g}".format(LORAPLUS_RATIO) if USE_LORAPLUS else "off"))
 print("  Batch / Grad Accum          : {}/{}".format(BATCH_SIZE, GRAD_ACCUM_STEPS))
 print("  Max Text Tokens             : {}".format(MAX_TEXT_TOKENS))
 print("  LoRA Only Attention         : {}".format("ON" if LORA_ONLY_ATTN else "OFF"))
@@ -1411,7 +1420,7 @@ def build_lora_metadata(step):
         "ss_base_model_version": "LTX-2.3",
         "ss_network_module": "peft.LoraModel",
         "ss_network_dim": LORA_RANK,
-        "ss_network_alpha": LORA_ALPHA,
+        "ss_network_alpha": lora_options.export_alpha(LORA_ALPHA, LORA_RANK, USE_RSLORA),
         "ss_learning_rate": LR,
         "ss_lr_scheduler": LR_SCHEDULER,
         "ss_lr_warmup_steps": WARMUP_STEPS,
@@ -1422,6 +1431,16 @@ def build_lora_metadata(step):
         "ss_seed": SEED,
         "ss_mixed_precision": "bf16",
     }
+
+    # La GUI lee estas claves al exportar o descargar para poner el sufijo _rs / _plus al nombre.
+    if USE_RSLORA:
+        meta["rslora"] = "true"
+        meta["rslora_train_alpha"] = LORA_ALPHA
+    if USE_LORAPLUS:
+        meta["loraplus_ratio"] = LORAPLUS_RATIO
+    if USE_RSLORA or USE_LORAPLUS:
+        meta["ss_network_args"] = json.dumps({"rslora": USE_RSLORA,
+                                              "loraplus_lr_ratio": LORAPLUS_RATIO if USE_LORAPLUS else None})
 
     if TRIGGER_WORD:
         meta["trigger_word"] = TRIGGER_WORD
@@ -1446,7 +1465,7 @@ def build_lora_metadata(step):
 def save_lora(model, path, step):
     prefix = LORA_KEY_PREFIX or ""
 
-    scaling = float(LORA_ALPHA) / float(max(1, LORA_RANK))
+    scaling = float(LORA_ALPHA) / (math.sqrt(LORA_RANK) if USE_RSLORA else float(max(1, LORA_RANK)))
 
     state = {}
 
@@ -2441,7 +2460,7 @@ def train_ltx23():
     global CURRENT_TRANSFORMER
     global CURRENT_AUDIO_CHANNELS
     global ACTIVATION_OFFLOAD_ACTIVE
-    global LORA_RANK, LORA_ALPHA  # al reanudar se toman del checkpoint
+    global LORA_RANK, LORA_ALPHA, USE_RSLORA, USE_LORAPLUS, LORAPLUS_RATIO  # al reanudar se toman del checkpoint
 
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.benchmark = True
@@ -2571,6 +2590,20 @@ def train_ltx23():
                               "(settings ask for {n2} layers, rank {r2}, alpha {a2}; they apply to new trainings).",
                               n=saved[0], r=saved[1], a=saved[2], n2=len(target_modules), r2=LORA_RANK, a2=LORA_ALPHA))
         target_modules, LORA_RANK, LORA_ALPHA = saved_targets, saved[1], saved[2]
+        # rsLoRA lo guarda PEFT en adapter_config.json; LoRA+ va en lora_options.json. Un checkpoint
+        # anterior a estas opciones no tiene ninguno de los dos: se entrenó sin ellas.
+        opts_file = os.path.join(RESUME_DIR, "lora_options.json")
+        opts = {}
+        if os.path.exists(opts_file):
+            with open(opts_file, "r", encoding="utf-8") as f:
+                opts = json.load(f)
+        saved_opts = (bool(saved_cfg.get("use_rslora", False)), bool(opts.get("use_loraplus", False)),
+                      float(opts.get("loraplus_ratio", LORAPLUS_RATIO)))
+        if saved_opts[:2] != (USE_RSLORA, USE_LORAPLUS):
+            print("\n[!] " + t("Resuming with the checkpoint's options: rsLoRA {a}, LoRA+ {b} "
+                              "(settings ask for rsLoRA {a2}, LoRA+ {b2}; they apply to new trainings).",
+                              a=saved_opts[0], b=saved_opts[1], a2=USE_RSLORA, b2=USE_LORAPLUS))
+        USE_RSLORA, USE_LORAPLUS, LORAPLUS_RATIO = saved_opts
 
     lora_config = LoraConfig(
         r=LORA_RANK,
@@ -2580,6 +2613,7 @@ def train_ltx23():
         bias="none",
         task_type=None,
         init_lora_weights=True,
+        use_rslora=USE_RSLORA,
     )
 
     model = get_peft_model(transformer, lora_config)
@@ -2626,7 +2660,7 @@ def train_ltx23():
     trainable = [p for p in model.parameters() if p.requires_grad]
 
     optimizer = bnb.optim.PagedAdamW8bit(
-        trainable,
+        lora_options.loraplus_groups(model.named_parameters(), LORAPLUS_RATIO) if USE_LORAPLUS else trainable,
         lr=LR,
         weight_decay=WEIGHT_DECAY,
     )
@@ -2680,6 +2714,8 @@ def train_ltx23():
 
         try:
             model.save_pretrained(RESUME_DIR)
+            with open(os.path.join(RESUME_DIR, "lora_options.json"), "w", encoding="utf-8") as f:
+                json.dump({"use_loraplus": USE_LORAPLUS, "loraplus_ratio": LORAPLUS_RATIO}, f)
         except Exception:
             pass
 
@@ -2934,7 +2970,7 @@ def train_ltx23():
                 current_lr = lr_at(step)
 
                 for group in optimizer.param_groups:
-                    group["lr"] = current_lr
+                    group["lr"] = current_lr * group.get("lr_mult", 1.0)
 
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)

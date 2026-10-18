@@ -28,6 +28,16 @@ def export_alpha(alpha, rank, rslora):
     return alpha * math.sqrt(rank) if rslora else alpha
 
 
+def loraplus_groups(named_params, ratio):
+    """LoRA+: lora_B en su propio grupo, con el LR multiplicado por ratio. El bucle aplica
+    lr_mult en cada paso (group["lr"] = lr * group["lr_mult"])."""
+    a, b = [], []
+    for name, p in named_params:
+        if p.requires_grad:
+            (b if "lora_B" in name else a).append(p)
+    return [g for g in ({"params": a, "lr_mult": 1.0}, {"params": b, "lr_mult": ratio}) if g["params"]]
+
+
 def lr_factor(scheduler, step, total, warmup, min_ratio, cycles):
     """Multiplicador del LR en el paso step. constant no tiene warmup ni bajada; el resto sube lineal
     durante warmup y luego baja hasta min_ratio (constant_with_warmup se queda arriba).
