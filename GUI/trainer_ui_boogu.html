@@ -646,6 +646,15 @@
                         </div>
                     </div>
 
+                    <div class="form-group">
+                        <label title="Training = the size of the sample image in the pre-cache (in edit LoRAs, the size of the before image). 768 / 1024 keep its proportions and show what you will get in ComfyUI, even when training at 512. 1024 takes about 4 times longer than 512.">Preview Size:</label>
+                        <select id="train_preview_size">
+                            <option value="0" selected>Training</option>
+                            <option value="768">768 x 768 (area)</option>
+                            <option value="1024">1024 x 1024 (area)</option>
+                        </select>
+                    </div>
+
                     <!-- Mismo guardado que Training: durante el entrenamiento se aplica en el siguiente paso -->
                     <button type="button" class="btn btn-secondary btn-tall btn-full" onclick="saveTrainSettings()" style="margin-top:12px;"
                             title="Saves the training settings, previews included. While training, they apply on the next step.">
@@ -988,6 +997,7 @@
                     if (t.preview_edit_image !== undefined) document.getElementById('preview_edit_image').value = t.preview_edit_image;
                     if (t.preview_steps !== undefined) document.getElementById('train_preview_steps').value = t.preview_steps;
                     if (t.preview_cfg !== undefined) document.getElementById('train_preview_cfg').value = t.preview_cfg;
+                    if (t.preview_size !== undefined) document.getElementById('train_preview_size').value = String(t.preview_size);
                     if (t.export_final_name) document.getElementById('export_final_name').value = t.export_final_name;
                     updateFinalNameSuffix();
                 }
@@ -1062,6 +1072,7 @@
                     if (data.preview_edit_image !== undefined) document.getElementById('preview_edit_image').value = data.preview_edit_image;
                     if (data.preview_steps !== undefined) document.getElementById('train_preview_steps').value = data.preview_steps;
                     if (data.preview_cfg !== undefined) document.getElementById('train_preview_cfg').value = data.preview_cfg;
+                    if (data.preview_size !== undefined) document.getElementById('train_preview_size').value = String(data.preview_size);
                     if (data.export_final_name !== undefined) document.getElementById('export_final_name').value = data.export_final_name;
                     updateFinalNameSuffix();
 
@@ -1243,6 +1254,7 @@
                 lora_type: document.getElementById('lora_type').value,
                 preview_steps: parseInt(document.getElementById('train_preview_steps').value),
                 preview_cfg: parseFloat(document.getElementById('train_preview_cfg').value),
+                preview_size: parseInt(document.getElementById('train_preview_size').value),
                 use_filter_bypass: false,
                 filter_bypass_strength: 0.01,
                 export_final_name: document.getElementById('export_final_name').value

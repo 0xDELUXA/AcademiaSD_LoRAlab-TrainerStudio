@@ -7,6 +7,7 @@ Upstream recipe: examples/boogu_image/model_training/train.py (Apache-2.0).
 """
 import argparse
 import json
+import math
 import os
 import random
 import signal
@@ -275,6 +276,7 @@ def boogu_image_parser():
     parser.add_argument("--loraplus_ratio", type=float, default=16.0)
     parser.add_argument("--trigger_word", type=str, default="")
     parser.add_argument("--live_settings", type=str, default="")
+    parser.add_argument("--preview_size", type=int, default=0)
     return parser
 
 
@@ -289,6 +291,8 @@ LIVE_KEYS = {
     "preview_cfg": ("preview_cfg", float),
     "preview_caption_mode": ("preview_caption_mode", str),
     "preview_custom_prompt": ("preview_custom_prompt", lambda v: str(v).strip()),
+    "preview_edit_image": ("preview_edit_image", lambda v: str(v).strip()),
+    "preview_size": ("preview_size", int),
     "seed": ("seed", int),  # solo previews
 }
 
@@ -472,25 +476,20 @@ def run_boogu_preview(model, dataset, args, step):
     mode = args.preview_caption_mode
     if mode == "custom" and args.preview_custom_prompt.strip():
         sample_key = {"image": "_custom"}
-        manifest_path = Path(args.boogu_cache_dir) / "cache_manifest.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cached_path = cache_path(args.boogu_cache_dir, sample_key)
+        manifest = json.loads((Path(args.boogu_cache_dir) / "cache_manifest.json").read_text(encoding="utf-8"))
         expected_prompt = args.preview_custom_prompt.strip()
         trigger = args.trigger_word.strip()
         if trigger and trigger.casefold() not in expected_prompt.casefold():
             expected_prompt = f"{trigger}, {expected_prompt}"
-        if manifest.get("preview_custom_prompt") != expected_prompt:
-            print("[Boogu preview] El prompt personalizado no está en caché; vuelve a ejecutar Pre-Caché.", flush=True)
-            return
         default_edit_image = rows[0].get("edit_image", "") if args.lora_type == "edit" else ""
         expected_edit_image = args.preview_edit_image.strip() or default_edit_image
-        if manifest.get("preview_edit_image", "") != expected_edit_image:
-            print("[Boogu preview] La imagen personalizada no está en caché; vuelve a ejecutar Pre-Caché.", flush=True)
-            return
-        cached_path = cache_path(args.boogu_cache_dir, sample_key)
-        if not cached_path.is_file():
-            print("[Boogu preview] Falta la caché del prompt personalizado; vuelve a ejecutar Pre-Caché.", flush=True)
-            return
-    else:
+        if (manifest.get("preview_custom_prompt") != expected_prompt
+                or manifest.get("preview_edit_image", "") != expected_edit_image or not cached_path.is_file()):
+            # El servidor lo está codificando (Save JSON): mientras tanto, la primera muestra del dataset.
+            print("[PREVIEW] " + t("The new prompt is being encoded on CPU (Save JSON); previews switch to it when ready."), flush=True)
+            mode = "first"
+    if mode != "custom" or not args.preview_custom_prompt.strip():
         if mode == "random":
             index = random.randrange(len(rows))
         elif mode == "rotate4":
@@ -501,6 +500,10 @@ def run_boogu_preview(model, dataset, args, step):
         cached_path = cache_path(args.boogu_cache_dir, sample_key)
     sample = torch.load(cached_path, map_location="cpu", weights_only=True)
     height, width = int(sample["height"]), int(sample["width"])
+    if args.preview_size > 0:
+        # Misma proporción con el área elegida; múltiplo 16 (VAE /8 y parches 2x2).
+        scale = args.preview_size / math.sqrt(height * width)
+        height, width = max(16, round(height * scale / 16) * 16), max(16, round(width * scale / 16) * 16)
     device = pipe.device
     try:
         pipe.dit.eval()

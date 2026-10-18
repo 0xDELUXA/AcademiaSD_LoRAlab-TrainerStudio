@@ -125,6 +125,7 @@ def main():
             "--preview_every", str(max(0, int(train_cfg.get("preview_every", 0)))),
             "--preview_steps", str(max(1, int(train_cfg.get("preview_steps", 30)))),
             "--preview_cfg", str(float(train_cfg.get("preview_cfg", 4.0))),
+            "--preview_size", str(max(0, int(train_cfg.get("preview_size", 0)))),
             "--preview_caption_mode", str(train_cfg.get("preview_caption_mode", "first")),
             "--preview_custom_prompt", str(train_cfg.get("preview_custom_prompt", "")),
             "--preview_edit_image", str(train_cfg.get("preview_edit_image", "")),

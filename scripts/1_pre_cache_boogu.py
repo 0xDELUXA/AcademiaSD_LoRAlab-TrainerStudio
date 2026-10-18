@@ -127,7 +127,7 @@ def _encode_negative(pipe):
     return hidden.to(dtype=torch.bfloat16), inputs["attention_mask"]
 
 
-def _encode_text(rows, dataset, cache, mode, trigger):
+def _encode_text(rows, dataset, cache, mode, trigger, device="cuda"):
     from diffsynth.core import ModelConfig
     from diffsynth.pipelines.boogu_image import BooguImagePipeline, BooguImageUnit_PromptEmbedder
 
@@ -135,7 +135,7 @@ def _encode_text(rows, dataset, cache, mode, trigger):
     with quiet():
         pipe = BooguImagePipeline.from_pretrained(
             torch_dtype=torch.bfloat16,
-            device="cuda",
+            device=device,
             model_configs=[ModelConfig(path=str(NF4_TEXT_ENCODER))],
             processor_config=ModelConfig(path=str(NF4_DIR / "processor")),
         )
@@ -246,7 +246,7 @@ def _encode_latents(rows, dataset, cache, mode, target_area, multiple, max_side)
         gc_collect_cuda()
 
 
-def _encode_custom_reference(dataset, cache, reference_value, target_area, max_side):
+def _encode_custom_reference(dataset, cache, reference_value, target_area, max_side, device="cuda"):
     if not reference_value:
         return
     from diffsynth.core import ModelConfig
@@ -262,7 +262,7 @@ def _encode_custom_reference(dataset, cache, reference_value, target_area, max_s
     with quiet():
         pipe = BooguImagePipeline.from_pretrained(
             torch_dtype=torch.bfloat16,
-            device="cuda",
+            device=device,
             model_configs=[ModelConfig(path=[str(path) for path in vae_files])],
         )
     pipe.load_models_to_device(["vae_encoder"])
@@ -270,8 +270,9 @@ def _encode_custom_reference(dataset, cache, reference_value, target_area, max_s
         with Image.open(reference) as source:
             # Multiplo 32: la preview sale del tamaño de la referencia y el latente va en parches 2x2.
             image, width, height = _fit_target(source.convert("RGB"), target_area, max_side, 32)
-            pixels = pipe.preprocess_image(image, device="cuda", torch_dtype=torch.bfloat16)
-        latent = pipe.vae_encoder(pixels).squeeze(0).detach().to(device="cpu", dtype=torch.bfloat16)
+            pixels = pipe.preprocess_image(image, device=device, torch_dtype=torch.bfloat16)
+        with torch.inference_mode():
+            latent = pipe.vae_encoder(pixels).squeeze(0).detach().to(device="cpu", dtype=torch.bfloat16)
         saved.update({
             "reference_latents": latent,
             "custom_reference_hash": reference_hash,
@@ -283,6 +284,63 @@ def _encode_custom_reference(dataset, cache, reference_value, target_area, max_s
     finally:
         del pipe
         gc_collect_cuda()
+
+
+def _custom_preview(config, mode, first_row):
+    # Prompt de la preview personalizada (con el trigger) y, en edición, su imagen de antes:
+    # la elegida o, si está vacía, la del primer par.
+    prompt = _with_trigger(config.get("preview_custom_prompt", ""), config.get("trigger_word", ""))
+    reference = ""
+    if mode == "edit" and prompt:
+        reference = str(config.get("preview_edit_image", "")).strip() or first_row["edit_image"]
+    return prompt, reference
+
+
+def _custom_size(cache, first_row):
+    # Sin imagen de antes, la preview personalizada sale del tamaño de la primera muestra.
+    custom_path = cache_path(cache, {"image": "_custom"})
+    custom_saved = _load(custom_path)
+    first_saved = _load(cache_path(cache, first_row))
+    custom_saved.update({"width": first_saved["width"], "height": first_saved["height"]})
+    _save(custom_path, custom_saved)
+
+
+def prompt_only(device):
+    """Codifica solo el prompt (y la imagen) de la preview personalizada en una caché ya hecha.
+
+    Lo lanza el servidor al guardar los ajustes: en CPU si hay un entrenamiento en marcha, para no
+    tocar su VRAM. El trainer relee el manifest antes de cada preview y cambia al prompt nuevo.
+    """
+    _configure_console()
+    try:
+        config, dataset, cache, mode, area, _, max_side = _load_cache_settings()
+        manifest_path = cache / "cache_manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        with (cache / "metadata.jsonl").open(encoding="utf-8") as stream:
+            first_row = json.loads(stream.readline())
+        prompt, reference = _custom_preview(config, mode, first_row)
+        if not prompt:
+            return 0
+        row = {"image": "_custom", "prompt": prompt, "custom": True}
+        if reference:
+            row["edit_image"] = reference
+        print(f"[Custom Prompt] Prompt: {prompt}", flush=True)
+        _encode_text([row], dataset, cache, mode, config.get("trigger_word", ""), device)
+        if reference:
+            print(f"[Custom Prompt] Image: {reference}", flush=True)
+            _encode_custom_reference(dataset, cache, reference, area, max_side, device)
+        else:
+            _custom_size(cache, first_row)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest.update({"preview_custom_prompt": prompt, "preview_edit_image": reference})
+        temporary = manifest_path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(temporary, manifest_path)
+        print("[Custom Prompt] Done", flush=True)
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] {exc}", flush=True)
+        return 1
 
 
 def main():
@@ -306,12 +364,7 @@ def main():
         cache.mkdir(parents=True, exist_ok=True)
         print(f"Boogu {mode}: {len(rows)} muestras | caché: embeddings + latentes", flush=True)
         text_rows = list(rows)
-        custom_prompt = _with_trigger(config.get("preview_custom_prompt", ""), config.get("trigger_word", ""))
-        custom_reference = ""
-        if mode == "edit" and custom_prompt:
-            custom_reference = str(config.get("preview_edit_image", "")).strip()
-            if not custom_reference:
-                custom_reference = rows[0]["edit_image"]
+        custom_prompt, custom_reference = _custom_preview(config, mode, rows[0])
         if custom_prompt:
             custom_row = {"image": "_custom", "prompt": custom_prompt, "custom": True}
             if custom_reference:
@@ -323,11 +376,7 @@ def main():
         if mode == "edit" and custom_prompt:
             _encode_custom_reference(dataset, cache, custom_reference, area, max_side)
         if custom_prompt and mode == "normal":
-            custom_path = cache_path(cache, {"image": "_custom"})
-            custom_saved = _load(custom_path)
-            first_saved = _load(cache_path(cache, rows[0]))
-            custom_saved.update({"width": first_saved["width"], "height": first_saved["height"]})
-            _save(custom_path, custom_saved)
+            _custom_size(cache, rows[0])
 
         manifest = {
             "cache_version": CACHE_VERSION,
@@ -356,4 +405,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(prompt_only(sys.argv[2]) if sys.argv[1:2] == ["--prompt-only"] else main())

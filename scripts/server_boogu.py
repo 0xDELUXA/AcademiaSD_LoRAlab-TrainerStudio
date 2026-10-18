@@ -546,6 +546,43 @@ def save_precache():
         return jsonify({"status": "error", "error": str(exc)}), 500
 
 
+prompt_job = {"process": None, "args": None, "stage": None, "device": None}
+
+
+def encoding_stage():
+    # "loading", "image" o "prompt" mientras se codifica la preview manual; None si no hay nada en marcha.
+    process = prompt_job["process"]
+    return prompt_job["stage"] if process is not None and process.poll() is None else None
+
+
+def encode_preview_prompt(wanted):
+    # Un solo proceso a la vez: si se guarda otro prompt mientras codifica, gana el último.
+    # En GPU si está libre; con el entrenamiento en marcha, en CPU para no tocar su VRAM (~1 min).
+    device = "cpu" if get_status()["script"] == "train" else "cuda"
+    args = [sys.executable, "-u", str(PRECACHE_SCRIPT), "--prompt-only", device]
+    if encoding_stage() is not None:
+        if prompt_job["args"] == args + wanted:
+            return
+        prompt_job["process"].terminate()
+        prompt_job["process"].wait()
+    env = {**os.environ, "CUDA_VISIBLE_DEVICES": ""} if device == "cpu" else None
+    process = subprocess.Popen(args, cwd=str(BASE_DIR), env=env,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                               encoding="utf-8", errors="replace", bufsize=1)
+    prompt_job.update(process=process, args=args + wanted, stage="loading", device="GPU" if device == "cuda" else "CPU")
+
+    def follow():
+        # Reenvía la salida a la consola del servidor y actualiza la fase que muestra la GUI.
+        for line in process.stdout:
+            print(line, end="", flush=True)
+            if prompt_job["process"] is process and line.startswith("[Custom Prompt] "):
+                stage = line[len("[Custom Prompt] "):].split(":", 1)[0].lower()
+                if stage in ("image", "prompt"):
+                    prompt_job["stage"] = stage
+
+    threading.Thread(target=follow, daemon=True).start()
+
+
 @app.route("/api/save-train", methods=["POST"])
 def save_train():
     try:
@@ -569,6 +606,25 @@ def save_train():
             precache_cfg[key] = data.get(key, "")
         write_json_file(PRECACHE_CONFIG, precache_cfg)
 
+        # Si la caché ya hecha no tiene este prompt o imagen de preview, se codifican aparte y el
+        # trainer los relee antes de la siguiente preview. Sin caché completa lo hará el Pre-Cache.
+        prompt = data.get("preview_custom_prompt", "").strip()
+        trigger = data.get("trigger_word", "").strip()
+        if trigger and prompt and trigger.casefold() not in prompt.casefold():
+            prompt = f"{trigger}, {prompt}"
+        cache_dir = resolve_config_path(data["cache_dir"], cache_dir_name)
+        manifest = read_json_file(cache_dir / "cache_manifest.json", {})
+        if prompt and manifest.get("complete") is True and get_status()["script"] != "precache":
+            image = ""
+            if manifest.get("mode") == "edit":
+                image = data.get("preview_edit_image", "").strip()
+                if not image:
+                    with (cache_dir / "metadata.jsonl").open(encoding="utf-8") as stream:
+                        image = json.loads(stream.readline())["edit_image"]
+            wanted = [prompt, image]
+            if wanted != [manifest.get("preview_custom_prompt"), manifest.get("preview_edit_image", "")]:
+                encode_preview_prompt(wanted)
+
         saved_files = [TRAIN_CONFIG.name]
 
         # 2. Guardar copia dentro de la carpeta del proyecto
@@ -579,7 +635,7 @@ def save_train():
             write_json_file(output_json_file, data)
             saved_files.append(f"{output_dir_name}/{output_json_file.name}")
 
-        return jsonify({"status": "ok", "file": saved_files[0], "all_saved": saved_files})
+        return jsonify({"status": "ok", "file": saved_files[0], "all_saved": saved_files, "encoding": encoding_stage(), "encoding_device": prompt_job["device"]})
     except Exception as exc:
         return jsonify({"status": "error", "error": str(exc)}), 500
 
@@ -590,7 +646,7 @@ def save_train():
 
 @app.route("/api/status", methods=["GET"])
 def api_status():
-    return jsonify(get_status())
+    return jsonify({**get_status(), "encoding": encoding_stage(), "encoding_device": prompt_job["device"]})
 
 
 @app.route("/api/checkpoint-info", methods=["GET"])
@@ -627,6 +683,9 @@ def run_script():
     get_dataset_dir()
     get_train_output_dir()
     get_precache_dir()
+
+    if encoding_stage() is not None:
+        return jsonify({"status": "error", "error": t("Encoding the preview prompt, wait until it finishes.")}), 409
 
     ok, error = runtime.start(script_name, script_path)
     if not ok:
