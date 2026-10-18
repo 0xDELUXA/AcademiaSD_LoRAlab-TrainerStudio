@@ -379,10 +379,6 @@
                         </div>
                     </div>
 
-                    <div class="form-group" id="editDatasetNotice" style="color:#38bdf8; font-size:0.82rem; line-height:1.45;">
-                        Boogu requires edit pairs named <code>name_before.ext</code> and <code>name_after.ext</code>, plus <code>name.txt</code> with the edit instruction. Pre-Cache encodes instructions with the NF4 text encoder and stores target/reference image latents. Training then uses only the NF4 transformer; source images are not modified.
-                    </div>
-
                     <!-- Botones Load JSON y Save JSON -->
                     <div class="btn-row" style="margin-top:12px;">
                         <button type="button" class="btn btn-secondary btn-tall" onclick="triggerLoadJson('precache')">
@@ -804,7 +800,6 @@
         function applyLoraType() {
             const edit = document.getElementById('lora_type').value === 'edit';
             document.getElementById('edit_image_container').style.display = edit ? 'block' : 'none';
-            document.getElementById('editDatasetNotice').style.display = edit ? 'block' : 'none';
             const captionMode = document.getElementById('caption_mode');
             if (captionMode.value !== (edit ? 'edit' : 'normal')) {
                 captionMode.value = edit ? 'edit' : 'normal';

@@ -1,14 +1,21 @@
 # -*- coding: utf-8 -*-
 """Local Boogu model download and differentiable NF4 cache for LoRAlab."""
+import contextlib
 import copy
 import gc
 import json
 import os
 import shutil
 import sys
+import warnings
 from pathlib import Path
 
 from i18n import t
+
+# Los modelos de Boogu siempre se cargan de NF4_DIR: DiffSynth no debe intentar bajarlos de ModelScope.
+os.environ["DIFFSYNTH_SKIP_DOWNLOAD"] = "True"
+# Aviso de bitsandbytes en cada capa NF4 de 3360 de ancho: no es accionable y llena la consola.
+warnings.filterwarnings("ignore", message="inner dimension")
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -25,6 +32,11 @@ COMPONENTS = (
 )
 REPOSITORY_DIRS = ("assets", "mllm", "processor", "scheduler", "transformer", "vae")
 REPOSITORY_FILES = (".gitattributes", "README.md", "README_CN.md", "model_index.json")
+
+
+def quiet():
+    # DiffSynth imprime su cuadro de descargas y cada modelo que carga; en la consola de la GUI solo es ruido.
+    return contextlib.redirect_stdout(open(os.devnull, "w", encoding="utf-8"))
 
 
 def _read_token():
@@ -106,7 +118,6 @@ def _convert_component(raw_files, model_name, output_file, log=print):
         raise RuntimeError("La conversión NF4 local de Boogu necesita una GPU CUDA disponible.")
     output_file.parent.mkdir(parents=True, exist_ok=True)
     log(f"[Boogu NF4] Cargando {model_name} desde los pesos raw locales", flush=True)
-    os.environ["DIFFSYNTH_SKIP_DOWNLOAD"] = "True"
     pipe = BooguImagePipeline(device="cpu", torch_dtype=torch.bfloat16)
     pool = pipe.download_and_load_models([ModelConfig(path=raw_files, skip_download=True)])
     model = pool.fetch_model(model_name)

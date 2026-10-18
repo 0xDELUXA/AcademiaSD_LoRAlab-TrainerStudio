@@ -12,7 +12,7 @@ from PIL import Image
 from boogu_dataset import CACHE_VERSION, build_metadata, cache_path, resolve_path
 from boogu_model import (
     NF4_DIR, NF4_TEXT_ENCODER, NF4_TRANSFORMER, ensure_nf4_model,
-    register_nf4_models,
+    quiet, register_nf4_models,
 )
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -132,12 +132,13 @@ def _encode_text(rows, dataset, cache, mode, trigger):
     from diffsynth.pipelines.boogu_image import BooguImagePipeline, BooguImageUnit_PromptEmbedder
 
     register_nf4_models()
-    pipe = BooguImagePipeline.from_pretrained(
-        torch_dtype=torch.bfloat16,
-        device="cuda",
-        model_configs=[ModelConfig(path=str(NF4_TEXT_ENCODER))],
-        processor_config=ModelConfig(path=str(NF4_DIR / "processor")),
-    )
+    with quiet():
+        pipe = BooguImagePipeline.from_pretrained(
+            torch_dtype=torch.bfloat16,
+            device="cuda",
+            model_configs=[ModelConfig(path=str(NF4_TEXT_ENCODER))],
+            processor_config=ModelConfig(path=str(NF4_DIR / "processor")),
+        )
     pipe.load_models_to_device(["text_encoder"])
     unit = BooguImageUnit_PromptEmbedder()
     try:
@@ -192,11 +193,12 @@ def _encode_latents(rows, dataset, cache, mode, target_area, multiple, max_side)
     vae_files = sorted((NF4_DIR / "vae").glob("*.safetensors"))
     if not vae_files:
         raise FileNotFoundError(f"No se encontró el VAE local en {NF4_DIR / 'vae'}")
-    pipe = BooguImagePipeline.from_pretrained(
-        torch_dtype=torch.bfloat16,
-        device="cuda",
-        model_configs=[ModelConfig(path=[str(path) for path in vae_files])],
-    )
+    with quiet():
+        pipe = BooguImagePipeline.from_pretrained(
+            torch_dtype=torch.bfloat16,
+            device="cuda",
+            model_configs=[ModelConfig(path=[str(path) for path in vae_files])],
+        )
     pipe.load_models_to_device(["vae_encoder"])
     latent_config = [target_area, multiple, max_side]
     try:
@@ -257,11 +259,12 @@ def _encode_custom_reference(dataset, cache, reference_value, target_area, max_s
     if saved.get("custom_reference_hash") == reference_hash and "reference_latents" in saved:
         return
     vae_files = sorted((NF4_DIR / "vae").glob("*.safetensors"))
-    pipe = BooguImagePipeline.from_pretrained(
-        torch_dtype=torch.bfloat16,
-        device="cuda",
-        model_configs=[ModelConfig(path=[str(path) for path in vae_files])],
-    )
+    with quiet():
+        pipe = BooguImagePipeline.from_pretrained(
+            torch_dtype=torch.bfloat16,
+            device="cuda",
+            model_configs=[ModelConfig(path=[str(path) for path in vae_files])],
+        )
     pipe.load_models_to_device(["vae_encoder"])
     try:
         with Image.open(reference) as source:

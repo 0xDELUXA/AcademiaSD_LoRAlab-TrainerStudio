@@ -6,36 +6,27 @@ DiffSynth-Studio package installed in LoRAlab's regular Python environment.
 Upstream recipe: examples/boogu_image/model_training/train.py (Apache-2.0).
 """
 import argparse
-import contextlib
 import json
 import os
 import random
 import signal
 import sys
 import time
-import warnings
 from pathlib import Path
 
 import accelerate
 import torch
 from torch.utils.data import DataLoader, Dataset
 from boogu_dataset import CACHE_VERSION, cache_path
-from boogu_model import NF4_DIR
+from boogu_model import NF4_DIR, quiet
 from i18n import t
 from diffsynth.core.data.operators import *  # noqa: F401,F403
 from diffsynth.diffusion import *  # noqa: F401,F403
 from diffsynth.pipelines.boogu_image import BooguImagePipeline, ModelConfig
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-# Aviso de bitsandbytes en cada capa NF4 de 3360 de ancho: no es accionable y llena la consola.
-warnings.filterwarnings("ignore", message="inner dimension")
 # La GUI busca "<Paso> N/Total" en la consola para saber por qué paso va.
 STEP_WORD = t("Step")
-
-
-def quiet():
-    # DiffSynth imprime su cuadro de descargas y cada modelo que carga; en la consola de la GUI solo es ruido.
-    return contextlib.redirect_stdout(open(os.devnull, "w", encoding="utf-8"))
 
 
 def configure_console_encoding():
