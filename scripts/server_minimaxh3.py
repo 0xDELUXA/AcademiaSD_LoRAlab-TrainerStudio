@@ -406,7 +406,7 @@ def export_lora():
             return jsonify({"status": "error", "error": t("No .safetensors files found in: {path}", path=output_dir)}), 404
         custom_name = file_transfer.with_lora_options_suffix(custom_name, source_file)
         dest_file = target_dir / custom_name
-        shutil.copy2(source_file, dest_file)
+        shutil.copyfile(source_file, dest_file)
         return jsonify({
             "status": "ok",
             "source": source_file.name,
