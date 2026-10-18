@@ -1099,5 +1099,20 @@
   "darask0/MOSS-Image_4-step_adapter_lora (4 steps, ~1.2 GB, downloaded on first use). Distilled from SFT; it also works on Base.": "darask0/MOSS-Image_4-step_adapter_lora (4 pasos, ~1,2 GB, se descarga la primera vez). Destilado de SFT; sobre Base también funciona.",
   "MOSS-Image is a text-to-image model: one description per image, with any visible text copied exactly.": "MOSS-Image es un modelo de texto a imagen: una descripción por imagen, con el texto visible copiado tal cual.",
   "Training = the size of the image in the pre-cache. 768 / 1024 keep more detail but need more VRAM; 768 is a good starting point for MOSS-Image.": "Training = el tamaño de la imagen en el pre-caché. 768 / 1024 conservan más detalle pero necesitan más VRAM; 768 es un buen punto de partida para MOSS-Image.",
-  "Text-to-image LoRAs (Base and SFT)": "LoRAs de texto a imagen (Base y SFT)"
+  "Text-to-image LoRAs (Base and SFT)": "LoRAs de texto a imagen (Base y SFT)",
+  "BF16 (exact, 18+ GB VRAM)": "BF16 (exacto, 18+ GB VRAM)",
+  "INT8 (10+ GB VRAM)": "INT8 (10+ GB VRAM)",
+  "NF4 (6+ GB VRAM)": "NF4 (6+ GB VRAM)",
+  "Text Encoder (Qwen2.5-VL-7B)": "Text Encoder (Qwen2.5-VL-7B)",
+  "Blocks on GPU": "Bloques en GPU",
+  "Blocks on GPU: {n}/60 | from RAM: {gb:.1f} GB ({pin})": "Bloques en GPU: {n}/60 | desde RAM: {gb:.1f} GB ({pin})",
+  "pinned": "memoria fijada",
+  "not pinned": "memoria no fijada",
+  "Blocks trains attention and MLP of the 60 blocks: enough for characters, objects and styles, and it combines well with distilled LoRAs such as Lightning. All also trains the modulation of each block, the timestep and the input/output layers; it can clash with distilled LoRAs.": "Blocks entrena la atención y el MLP de los 60 bloques: suficiente para personajes, objetos y estilos, y combina bien con LoRAs destilados como Lightning. All entrena además la modulación de cada bloque, el timestep y las capas de entrada/salida; puede chocar con LoRAs destilados.",
+  "How many of the 60 blocks stay in VRAM; the rest are copied from RAM one by one as they are used, so the 20B model trains in 4-8 GB. More blocks = faster, until VRAM runs out (each one is ~0.17 GB). -1 = automatic, from the free VRAM, the resolution and the rank.": "Cuántos de los 60 bloques se quedan en la VRAM; el resto se copia desde la RAM uno a uno al usarlo, así el modelo de 20B entrena en 4-8 GB. Más bloques = más rápido, hasta que se acaba la VRAM (cada uno ocupa ~0,17 GB). -1 = automático, según la VRAM libre, la resolución y el rank.",
+  "Qwen-Image-2512 (text to image)": "Qwen-Image-2512 (texto a imagen)",
+  "Qwen-Image-Edit-2511 (editing)": "Qwen-Image-Edit-2511 (edición)",
+  "The model the LoRA is trained on, and the one to use it with in ComfyUI. Qwen-Image-2512 generates from text; Qwen-Image-Edit-2511 edits an image. They are separate fine-tunes of Qwen-Image, so a LoRA trained on one is not guaranteed to work on the other. An edit LoRA (before / after pairs) always uses Edit-2511.": "El modelo sobre el que se entrena el LoRA, y con el que hay que usarlo en ComfyUI. Qwen-Image-2512 genera desde texto; Qwen-Image-Edit-2511 edita una imagen. Son ajustes distintos de Qwen-Image, así que un LoRA entrenado en uno no tiene por qué funcionar en el otro. Un LoRA de edición (pares antes / después) usa siempre Edit-2511.",
+  "Writes one .txt per image with Qwen3-VL-8B (NF4, ~5.5 GB VRAM), with the trigger word first. It is shared by every trainer: ~5 GB are downloaded only the first time.": "Escribe un .txt por imagen con Qwen3-VL-8B (NF4, ~5,5 GB de VRAM), con la palabra trigger al principio. Lo comparten todos los entrenadores: ~5 GB que se descargan solo la primera vez.",
+  "The cache has before/after pairs: an edit LoRA needs Qwen-Image-Edit-2511 as the base model.": "La caché tiene pares antes/después: un LoRA de edición necesita Qwen-Image-Edit-2511 como modelo base."
 }

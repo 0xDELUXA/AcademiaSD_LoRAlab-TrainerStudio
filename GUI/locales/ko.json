@@ -1099,5 +1099,20 @@
   "darask0/MOSS-Image_4-step_adapter_lora (4 steps, ~1.2 GB, downloaded on first use). Distilled from SFT; it also works on Base.": "darask0/MOSS-Image_4-step_adapter_lora (4단계, ~1.2GB, 처음 사용할 때 다운로드). SFT에서 증류되었지만 Base에서도 작동합니다.",
   "MOSS-Image is a text-to-image model: one description per image, with any visible text copied exactly.": "MOSS-Image는 텍스트-이미지 모델입니다: 이미지마다 설명 하나, 보이는 글자는 그대로 옮겨 적습니다.",
   "Training = the size of the image in the pre-cache. 768 / 1024 keep more detail but need more VRAM; 768 is a good starting point for MOSS-Image.": "Training = 프리캐시 안의 이미지 크기. 768 / 1024는 디테일을 더 살리지만 VRAM이 더 필요합니다. MOSS-Image는 768이 좋은 시작점입니다.",
-  "Text-to-image LoRAs (Base and SFT)": "텍스트-이미지 LoRA (Base 및 SFT)"
+  "Text-to-image LoRAs (Base and SFT)": "텍스트-이미지 LoRA (Base 및 SFT)",
+  "BF16 (exact, 18+ GB VRAM)": "BF16 (정확, VRAM 18GB 이상)",
+  "INT8 (10+ GB VRAM)": "INT8 (VRAM 10GB 이상)",
+  "NF4 (6+ GB VRAM)": "NF4 (VRAM 6GB 이상)",
+  "Text Encoder (Qwen2.5-VL-7B)": "텍스트 인코더 (Qwen2.5-VL-7B)",
+  "Blocks on GPU": "GPU의 블록",
+  "Blocks on GPU: {n}/60 | from RAM: {gb:.1f} GB ({pin})": "GPU의 블록: {n}/60 | RAM에서: {gb:.1f} GB ({pin})",
+  "pinned": "고정 메모리",
+  "not pinned": "비고정 메모리",
+  "Blocks trains attention and MLP of the 60 blocks: enough for characters, objects and styles, and it combines well with distilled LoRAs such as Lightning. All also trains the modulation of each block, the timestep and the input/output layers; it can clash with distilled LoRAs.": "Blocks는 60개 블록의 어텐션과 MLP를 학습합니다. 캐릭터, 사물, 스타일에는 충분하며 Lightning 같은 증류 LoRA와도 잘 어울립니다. All은 각 블록의 모듈레이션, 타임스텝, 입출력 레이어도 학습하므로 증류 LoRA와 충돌할 수 있습니다.",
+  "How many of the 60 blocks stay in VRAM; the rest are copied from RAM one by one as they are used, so the 20B model trains in 4-8 GB. More blocks = faster, until VRAM runs out (each one is ~0.17 GB). -1 = automatic, from the free VRAM, the resolution and the rank.": "60개 블록 중 VRAM에 남겨 둘 수. 나머지는 사용할 때마다 RAM에서 하나씩 복사되므로 20B 모델을 4~8GB로 학습할 수 있습니다. 블록이 많을수록 빨라지지만 VRAM이 허용하는 만큼입니다(블록당 약 0.17GB). -1 = 자동(여유 VRAM, 해상도, rank 기준).",
+  "Qwen-Image-2512 (text to image)": "Qwen-Image-2512 (텍스트에서 이미지)",
+  "Qwen-Image-Edit-2511 (editing)": "Qwen-Image-Edit-2511 (편집)",
+  "The model the LoRA is trained on, and the one to use it with in ComfyUI. Qwen-Image-2512 generates from text; Qwen-Image-Edit-2511 edits an image. They are separate fine-tunes of Qwen-Image, so a LoRA trained on one is not guaranteed to work on the other. An edit LoRA (before / after pairs) always uses Edit-2511.": "LoRA를 학습할 모델이자 ComfyUI에서 함께 사용할 모델입니다. Qwen-Image-2512는 텍스트로 생성하고, Qwen-Image-Edit-2511은 이미지를 편집합니다. 둘은 Qwen-Image의 별도 파인튜닝이므로 한쪽에서 학습한 LoRA가 다른 쪽에서 작동한다는 보장은 없습니다. 편집 LoRA(전 / 후 쌍)는 항상 Edit-2511을 사용합니다.",
+  "Writes one .txt per image with Qwen3-VL-8B (NF4, ~5.5 GB VRAM), with the trigger word first. It is shared by every trainer: ~5 GB are downloaded only the first time.": "Qwen3-VL-8B(NF4, VRAM 약 5.5GB)로 이미지마다 .txt를 하나씩 쓰고 트리거 단어를 맨 앞에 둡니다. 모든 트레이너가 공유하며 약 5GB를 처음 한 번만 다운로드합니다.",
+  "The cache has before/after pairs: an edit LoRA needs Qwen-Image-Edit-2511 as the base model.": "캐시에 전/후 쌍이 있습니다. 편집 LoRA에는 기본 모델로 Qwen-Image-Edit-2511이 필요합니다."
 }

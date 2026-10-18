@@ -38,6 +38,7 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 | Trainer | Trains | Minimum VRAM |
 | :--- | :--- | :--- |
 | **Qwen-Image 2.1** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) | 8 GB |
+| **Qwen-Image 2512 / Edit 2511** | Image LoRAs on Qwen-Image-2512 **and edit LoRAs** on Qwen-Image-Edit-2511 (before → after); 20B in NF4 with block swap | **~4 GB** (512², measured) / 8 GB (edit at 1024²) |
 | **Krea 2** | Image LoRAs (characters, objects, styles) for Krea 2 Raw and Turbo | 8 GB |
 | **Z-Image** | Image LoRAs (characters, objects, styles) for Z-Image and Z-Image-Turbo | 8 GB |
 | **Anima** | Anime and illustration LoRAs (characters, styles) | **4 GB** (NF4) / 6 GB (BF16) |
@@ -94,6 +95,7 @@ Each trainer downloads **only what it uses**, already quantized. The table compa
 | **SDXL** | ~7 per model | — | **~7 per model** | New trainer: only the preset you pick is downloaded (one `.safetensors` file); your own checkpoint downloads nothing. |
 | **Ideogram 4** | 16.1 (NF4) | — | **16.1** | New trainer: the official NF4 release, which includes the unconditional transformer used only by the previews. It is downloaded from Unsloth's ungated mirror (same weights, no license gate or token needed); the Ideogram license still applies. |
 | **FLUX.2 Klein 9B** | 34.7 | — | **8.8** | New trainer: the 9B transformer (18.2 GB) and the Qwen3-8B text encoder (16.4 GB) in NF4 (4.9 GB + 3.8 GB; only the 28 text encoder layers Klein reads). |
+| **Qwen-Image 2512 / Edit 2511** | 57.8 each | — | **26.8 / 18.6 / 15.7** | New trainer: the 20B transformer of 2512 or Edit-2511 in NF4 (9.9 GB each; only the one you train on is downloaded) and the Qwen2.5-VL-7B text encoder you pick: BF16 (exact, default) / INT8 / NF4. The optional Lightning turbo LoRA adds 0.85 GB. |
 | **MOSS-Image** | 27.2 | — | **20.2 / 13.2 / 9.9** | New trainer: the 5B transformer of Base or SFT in NF4 (3.1 GB each; only the one you train on is downloaded) and the Qwen3.5-9B text encoder you pick: BF16 (exact, default) / INT8 / NF4. The optional turbo preview adapter adds 1.2 GB. |
 | **ERNIE-Image** | 31.6 | — | **~6.7** | New trainer: downloads the prepared NF4 transformer and Ministral 3B text encoder from `AcademiaSD/Ernie-NF4-for-LoRA-Training`. The optional prompt enhancer is not needed for training. |
 
@@ -177,7 +179,7 @@ Under **LoRA Rank / Alpha**, the trainers have extra checkboxes. They change **h
 
 | Option | What it does | Trainers |
 | :--- | :--- | :--- |
-| **rsLoRA** | Scales the LoRA by `alpha/√rank` instead of `alpha/rank`, so high ranks keep learning. Ticking it lowers alpha to keep the same strength. | Z-Image, FLUX.2 Klein 9B, Qwen-Image 2.1, Krea 2, Anima, Ideogram 4, ERNIE-Image, MOSS-Image, SDXL, LTX-2.3, MiniMax-H3 |
+| **rsLoRA** | Scales the LoRA by `alpha/√rank` instead of `alpha/rank`, so high ranks keep learning. Ticking it lowers alpha to keep the same strength. | Z-Image, FLUX.2 Klein 9B, Qwen-Image 2.1, Qwen-Image 2512, Krea 2, Anima, Ideogram 4, ERNIE-Image, MOSS-Image, SDXL, LTX-2.3, MiniMax-H3 |
 | **LoRA+** | The `B` matrix of every layer learns 16× faster than `A`: usually the same quality in fewer steps. Lower the LR if it burns early. | same as rsLoRA |
 | **LoKr** + **Factor** | Replaces LoRA with a Kronecker product (LyCORIS). Much smaller files (~3 MB instead of ~40 MB at rank 8), good for characters with small datasets, more sensitive to the LR. rsLoRA and LoRA+ turn off. | Z-Image, FLUX.2 Klein 9B, Qwen-Image 2.1, Krea 2, Anima, ERNIE-Image, MOSS-Image |
 
@@ -281,6 +283,29 @@ All times were measured on an RTX 5080 16 GB.
 | Steps | 500 (~9 min 20 s) | 300 with 30 pairs (~9 min) |
 
 8 GB cards train at 512² and 768² (previews switch to a tiled VAE decode at 768²). 768²: ~2.2 s/step, ~8.4 GB VRAM; 1024²: ~4.3 s/step.
+
+### Qwen-Image 2512 / Edit 2511 — image and edit LoRAs
+
+> **New:** full runs (pre-cache, training, previews, resume) verified on Qwen-Image-2512 and on Qwen-Image-Edit-2511 with an edit LoRA.
+
+- One trainer, two models, chosen with **Base Model**: **Qwen-Image-2512** (`Qwen/Qwen-Image-2512`, text to image) and **Qwen-Image-Edit-2511** (`Qwen/Qwen-Image-Edit-2511`, editing). An edit LoRA (`name_before` / `name_after` pairs + instruction) always uses Edit-2511. Both are Apache 2.0, share the text encoder and the VAE, and only the transformer you train on is downloaded. They are separate fine-tunes of Qwen-Image (18-23 % apart in the weights), so a LoRA trained on one is not guaranteed to work on the other.
+- The 20B transformer is **NF4** (9.9 GB instead of 40.9 GB), except the modulation of the first block, which stays in BF16: in 4 bits it leaves grain all over the image. **Blocks on GPU** keeps that many of the 60 blocks in VRAM and copies the rest from RAM one by one as they are used, while the next one is already being copied; `-1` picks the number from the free VRAM, the resolution and the rank. Each resident block costs ~0.17 GB and saves its copy time.
+- The LoRA trains attention and MLP of the 60 blocks and is exported as `transformer.transformer_blocks.N.*` with `alpha`, which ComfyUI loads with the standard LoRA loader.
+- **Edit:** the before image goes to the text encoder (~384², as in the official pipeline) and, as a clean latent at the size of the after image, behind the target in the image sequence; Edit-2511 gives those tokens timestep 0.
+- **Text encoder (pre-cache only):** Qwen2.5-VL-7B in **BF16 CPU Offload** (default; exact), **BF16** (18+ GB), **INT8** (10+ GB) or **NF4** (6+ GB). The prompt is encoded with the official templates; in edit mode the before image gets its 3D MRoPE positions, as in ComfyUI.
+- **Captioner** (Qwen3-VL-8B NF4, shared): descriptions in normal mode, imperative instructions in edit mode.
+- **Previews:** 30 steps / CFG 4 with the official norm rescaling. Edit previews always use the preview reference image, with a negative that also sees it, as in the official pipeline. **Turbo LoRA (Fast Previews)** uses lightx2v's [Lightning 4-step LoRAs](https://huggingface.co/lightx2v/Qwen-Image-2512-Lightning) (2512 and [Edit-2511](https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning)), with their shift 3 and no CFG.
+- Default settings: 500 steps, LR 0.0002, cosine with 100 warmup steps, rank 16 / alpha 16.
+
+| Measured on an RTX 5080, PCIe 3.0 x16 (rank 16, every block from RAM) | Peak VRAM | s/step |
+| :--- | :--- | :--- |
+| Image 512² | 3.0 GB | 2.2 |
+| Image 1024² | 4.9 GB | 5.7 |
+| Edit 512² | 3.6 GB | 2.9 |
+| Edit 1024² | 7.6 GB | 14.1 |
+| Image 512², all 60 blocks on GPU | 13 GB | 1.8 |
+
+Copying the blocks from RAM costs little on a x16 slot (2.2 against 1.8 s/step at 512²); on a x4 slot or a riser it is several times slower.
 
 ### Krea 2 — image LoRAs for Krea 2 Raw and Turbo
 
@@ -557,6 +582,7 @@ The code is released under the **MIT License**. The models keep their own licens
 | Model | License |
 | :--- | :--- |
 | Qwen-Image 2.1 (and the Viggle Turbo LoRA) | Qwen Research License — non-commercial |
+| Qwen-Image-2512, Qwen-Image-Edit-2511 (and lightx2v's Lightning LoRAs) | Apache 2.0 |
 | Krea 2 | Krea 2 Community License |
 | LTX-2.3 | LTX-2 Open-Source License |
 | MiniMax-H3 | MiniMax-H3 Community License Agreement |
@@ -587,7 +613,7 @@ Code adapted or copied from other projects, and the work it builds on:
 | :--- | :--- | :--- |
 | [Fizgig](https://github.com/shootthesound/Fizgig) by [@shootthesound](https://github.com/shootthesound) | MiniMax H3 sigma sampling (`sample_sigmas`) and the video VAE encoder (`MiniMaxH3VideoVAEEncoder`), adapted | Apache-2.0 |
 | [ComfyUI](https://github.com/Comfy-Org/ComfyUI) | Origin of the MiniMax H3 video VAE that Fizgig ported; native layer names and LoRA layouts the exports follow | GPL-3.0 |
-| [Diffusers](https://github.com/huggingface/diffusers) | Model classes and pipelines; MiniMax H3 audio positions copied from `build_packed_sequence` | Apache-2.0 |
+| [Diffusers](https://github.com/huggingface/diffusers) | Model classes and pipelines; MiniMax H3 audio positions copied from `build_packed_sequence`; Qwen-Image prompt templates, latent packing and edit sizes from `QwenImagePipeline` / `QwenImageEditPlusPipeline`, followed in `scripts/qwen_image2512_model.py` | Apache-2.0 |
 | [Mel-Band-Roformer-Vocal-Model](https://github.com/KimberleyJensen/Mel-Band-Roformer-Vocal-Model) by KimberleyJensen | `scripts/melband/mel_band_roformer.py`, vendored with its source header (vocal separation for MiniMax H3 audio datasets) | not stated |
 | [BS-RoFormer](https://github.com/lucidrains/BS-RoFormer) by lucidrains | Architecture the Mel-Band RoFormer code derives from | MIT |
 | [librosa](https://github.com/librosa/librosa) | Mel filter bank reimplemented in `scripts/melband/mel_converter.py` | ISC |
@@ -599,7 +625,7 @@ Code adapted or copied from other projects, and the work it builds on:
 | [MOSS-Image](https://github.com/OpenMOSS/MOSS-Image) by the OpenMOSS Team | The MOSS-Image transformer of `pipeline_moss_image.py`, adapted in `scripts/moss_image_model.py` (NF4 layers, gradient checkpointing); prompt encoding, preview guidance, training noise schedule (technical report) and caption guide | Apache-2.0 |
 | [kohya-ss sd-scripts](https://github.com/kohya-ss/sd-scripts) | `ss_*` LoRA metadata convention, SDXL LoRA key format and 75-token caption chunking | Apache-2.0 |
 
-Models and LoRAs downloaded at run time (not part of this repository): MelBandRoFormer weights by [Kijai](https://huggingface.co/Kijai/MelBandRoFormer_comfy), the Klein 9B turbo preview LoRA by [kalle07](https://huggingface.co/kalle07/FLUX.2-klein-9B-turbo-lora-set), the Qwen-Image 2.1 turbo LoRA by [Viggle](https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo), the MOSS-Image 4-step adapter by [darask0](https://huggingface.co/darask0/MOSS-Image_4-step_adapter_lora) (built on the 8-step adapter by [lodestones](https://huggingface.co/lodestones/MOSS-Image-SFT-8-steps-dmd)), Z-Image-Fun-Lora-Distill by [Alibaba PAI](https://huggingface.co/alibaba-pai/Z-Image-Fun-Lora-Distill), and the ungated Ideogram 4 NF4 mirror by [Unsloth](https://huggingface.co/unsloth/ideogram-4-nf4-diffusers). Thanks to all of them.
+Models and LoRAs downloaded at run time (not part of this repository): MelBandRoFormer weights by [Kijai](https://huggingface.co/Kijai/MelBandRoFormer_comfy), the Klein 9B turbo preview LoRA by [kalle07](https://huggingface.co/kalle07/FLUX.2-klein-9B-turbo-lora-set), the Qwen-Image 2.1 turbo LoRA by [Viggle](https://huggingface.co/Viggle/Qwen-Image-2.1-viggle-turbo), the Qwen-Image-2512 and Edit-2511 Lightning LoRAs by [lightx2v](https://huggingface.co/lightx2v/Qwen-Image-2512-Lightning), the MOSS-Image 4-step adapter by [darask0](https://huggingface.co/darask0/MOSS-Image_4-step_adapter_lora) (built on the 8-step adapter by [lodestones](https://huggingface.co/lodestones/MOSS-Image-SFT-8-steps-dmd)), Z-Image-Fun-Lora-Distill by [Alibaba PAI](https://huggingface.co/alibaba-pai/Z-Image-Fun-Lora-Distill), and the ungated Ideogram 4 NF4 mirror by [Unsloth](https://huggingface.co/unsloth/ideogram-4-nf4-diffusers). Thanks to all of them.
 
 ## 💬 Community & Support
 
