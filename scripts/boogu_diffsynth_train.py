@@ -283,7 +283,53 @@ def boogu_image_parser():
     parser.add_argument("--use_loraplus", action="store_true")
     parser.add_argument("--loraplus_ratio", type=float, default=16.0)
     parser.add_argument("--trigger_word", type=str, default="")
+    parser.add_argument("--live_settings", type=str, default="")
     return parser
+
+
+# Ajustes en caliente: clave del json de la GUI -> (atributo de args, tipo). Rank, alpha, batch,
+# resolución y carpetas se fijan al arrancar y siguen necesitando Stop -> Resume.
+LIVE_KEYS = {
+    "total_steps": ("total_steps", int),
+    "save_every": ("save_steps", int),
+    "lr": ("learning_rate", float),
+    "preview_every": ("preview_every", int),
+    "preview_steps": ("preview_steps", int),
+    "preview_cfg": ("preview_cfg", float),
+    "preview_caption_mode": ("preview_caption_mode", str),
+    "preview_custom_prompt": ("preview_custom_prompt", lambda v: str(v).strip()),
+    "seed": ("seed", int),  # solo previews
+}
+
+
+def reload_live_settings(args, live):
+    """Si la GUI ha reescrito el json (Save JSON con el entrenamiento en marcha), aplica LIVE_KEYS a args."""
+    try:
+        mtime = os.path.getmtime(args.live_settings)
+    except OSError:
+        return []
+    if live.get("mtime") is None or mtime == live["mtime"]:
+        # La primera llamada solo memoriza la fecha: el guardado previo al lanzamiento no es un cambio.
+        live["mtime"] = live.get("mtime") or mtime
+        return []
+    try:
+        with open(args.live_settings, "r", encoding="utf-8") as stream:
+            raw = json.load(stream)
+    except (OSError, ValueError):
+        return []  # guardado a medias: se vuelve a intentar en el paso siguiente
+    live["mtime"] = mtime
+    changes = []
+    for key, (attr, cast) in LIVE_KEYS.items():
+        if key not in raw:
+            continue
+        try:
+            value = cast(raw[key])
+        except (TypeError, ValueError):
+            continue
+        if value != getattr(args, attr):
+            changes.append((attr, getattr(args, attr), value))
+            setattr(args, attr, value)
+    return changes
 
 
 def launch_boogu_training_task(accelerator, dataset, model, model_logger, args):
@@ -299,12 +345,12 @@ def launch_boogu_training_task(accelerator, dataset, model, model_logger, args):
         model.trainable_modules(), lr=args.learning_rate,
         weight_decay=args.weight_decay, **optimizer_kwargs,
     )
-    total_steps = max(1, args.total_steps)
-    warmup = min(max(0, args.warmup_steps), total_steps)
+    warmup = min(max(0, args.warmup_steps), max(1, args.total_steps))
     cycles = max(1, args.lr_cycles)
+    # args.total_steps se lee en cada paso: puede cambiar en caliente.
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer,
-        lr_lambda=lambda step: lr_factor(args.lr_scheduler, step, total_steps, warmup, 0.1, cycles),
+        lr_lambda=lambda step: lr_factor(args.lr_scheduler, step, max(1, args.total_steps), warmup, 0.1, cycles),
     )
     dataloader = DataLoader(
         dataset, batch_size=max(1, args.lora_batch_size), shuffle=True,
@@ -366,8 +412,20 @@ def launch_boogu_training_task(accelerator, dataset, model, model_logger, args):
     model.train()
     start_step, running_loss, t_avg = global_step, 0.0, 0.0
     t0 = time.time()
-    while global_step < total_steps and not stop["requested"]:
+    live = {}
+    reload_live_settings(args, live)
+    while global_step < args.total_steps and not stop["requested"]:
         for samples in dataloader:
+            changes = reload_live_settings(args, live)
+            if changes:
+                print("\n[LIVE] " + t("Settings reloaded without stopping:"), flush=True)
+                for attr, old, new in changes:
+                    print(f"[LIVE]   {attr}: {old} -> {new}", flush=True)
+                    if attr == "learning_rate" and old > 0:
+                        # LoRA+ tiene otro grupo con lr * ratio: se escalan todos por igual.
+                        scheduler.base_lrs = [lr * new / old for lr in scheduler.base_lrs]
+                if global_step >= args.total_steps:
+                    break
             with accelerator.accumulate(model):
                 losses = [model(sample) for sample in samples]
                 loss = torch.stack(losses).mean()
@@ -383,8 +441,9 @@ def launch_boogu_training_task(accelerator, dataset, model, model_logger, args):
             t0 = time.time()
             t_avg = dt if t_avg == 0 else 0.1 * dt + 0.9 * t_avg
             done = global_step - start_step
-            eta = int((total_steps - global_step) * t_avg)
-            pct = global_step / total_steps
+            total_steps = args.total_steps
+            eta = int(max(0, total_steps - global_step) * t_avg)
+            pct = min(1.0, global_step / total_steps)
             bar = "█" * int(pct * 20) + "░" * (20 - int(pct * 20))
             avg = running_loss / (done * max(1, args.gradient_accumulation_steps))
             print(f"\r{STEP_WORD} {global_step:4d}/{total_steps} [{bar}] {pct * 100:5.1f}% | Loss {avg:.4f} | "
@@ -399,7 +458,7 @@ def launch_boogu_training_task(accelerator, dataset, model, model_logger, args):
                     run_boogu_preview(unwrapped, dataset, args, global_step)
                 accelerator.wait_for_everyone()
                 t0 = time.time()
-            if global_step >= total_steps or stop["requested"]:
+            if global_step >= args.total_steps or stop["requested"]:
                 break
     if stop["requested"]:
         if not (args.save_steps and global_step % args.save_steps == 0):

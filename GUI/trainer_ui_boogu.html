@@ -1259,7 +1259,7 @@
                 const listStr = data.all_saved ? data.all_saved.join('\n • ') : data.file;
                 // Con el entrenamiento en marcha, el trainer aplica los ajustes en caliente en el paso siguiente.
                 const live = document.getElementById('status-badge').classList.contains('badge-running')
-                    ? '\n\n' + t('Training is running: steps, save/preview every, preview settings, caption mode, prompt, turbo and LR apply on the next step. Rank, alpha, batch and resolution need Stop -> Resume.')
+                    ? '\n\n' + t('Training is running: steps, save/preview every, preview settings and LR apply on the next step. Rank, alpha, batch and resolution need Stop -> Resume.')
                     : '';
                 const encoding = data.encoding
                     ? '\n\n' + t('The preview prompt/image is being encoded on {device}. Start/Resume and Stop are disabled until it finishes.', { device: data.encoding_device })

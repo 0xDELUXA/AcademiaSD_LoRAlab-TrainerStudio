@@ -130,6 +130,7 @@ def main():
             "--preview_edit_image", str(train_cfg.get("preview_edit_image", "")),
             "--lora_type", lora_type,
             "--trigger_word", str(train_cfg.get("trigger_word", precache_cfg.get("trigger_word", ""))),
+            "--live_settings", str(SETTINGS_DIR / "train_settings_boogu.json"),
             "--gradient_accumulation_steps", str(grad_accum),
             "--use_gradient_checkpointing",
             "--find_unused_parameters",
