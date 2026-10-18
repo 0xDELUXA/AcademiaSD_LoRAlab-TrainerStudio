@@ -249,10 +249,11 @@ def model_inputs(sample, latents, H, W, device):
     """
     shapes = [(1, H // 2, W // 2)]
     hidden = latents
-    if "ctrl" in sample:
-        ctrl = sample["ctrl"].to(device, non_blocking=True)
-        hidden = torch.cat([latents, qm.pack_latents(ctrl).expand(latents.shape[0], -1, -1)], dim=1)
-        shapes.append((1, ctrl.shape[2] // 2, ctrl.shape[3] // 2))
+    ctrls = sample.get("ctrls") or ([sample["ctrl"]] if "ctrl" in sample else [])
+    if ctrls:
+        ctrls = [c.to(device, non_blocking=True) for c in ctrls]
+        hidden = torch.cat([latents] + [qm.pack_latents(c).expand(latents.shape[0], -1, -1) for c in ctrls], dim=1)
+        shapes += [(1, c.shape[2] // 2, c.shape[3] // 2) for c in ctrls]
     return hidden, [shapes] * latents.shape[0]
 
 
@@ -351,7 +352,8 @@ def denoise(model, scheduler, sample, H, W, generator, neg=None):
     # En edición el negativo se codificó con la misma imagen de antes (_custom_neg) y lleva su latente.
     use_cfg = neg is not None and PREVIEW_CFG > 1.0
     if use_cfg:
-        conds.append({"emb": neg[0], "msk": neg[1], **({"ctrl": sample["ctrl"]} if "ctrl" in sample else {})})
+        conds.append({"emb": neg[0], "msk": neg[1],
+                      **{k: sample[k] for k in ("ctrl", "ctrls") if k in sample}})
 
     for t_ in scheduler.timesteps:
         timestep = t_.expand(1).to(torch.bfloat16) / 1000
@@ -732,6 +734,15 @@ def train_qwenimage2512():
             if os.path.exists(path):
                 tensor = torch.load(path, weights_only=True).to(cast)
                 sample[key] = tensor.pin_memory() if pin else tensor
+        if "ctrl" in sample:
+            ctrls = [sample["ctrl"]]
+            index = 2
+            while os.path.exists(f"{CACHE_DIR}/{nombre}_ctrl_{index}.pt"):
+                extra = torch.load(f"{CACHE_DIR}/{nombre}_ctrl_{index}.pt", weights_only=True).to(torch.bfloat16)
+                ctrls.append(extra.pin_memory() if pin else extra)
+                index += 1
+            if len(ctrls) > 1:
+                sample["ctrls"] = ctrls
         return sample
 
     for f in os.listdir(CACHE_DIR):
