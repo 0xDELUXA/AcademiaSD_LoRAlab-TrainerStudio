@@ -278,10 +278,10 @@ def model_inputs(sample, latents, H, W, device):
     txt_ids = Flux2KleinPipeline._prepare_text_ids(sample["emb"]).to(device)
     if "ctrl" not in sample:
         return latents, img_ids, txt_ids
-    # Con batch > 1 cada muestra lleva su propio antes; en la preview hay uno solo.
-    ctrl = sample["ctrl"].to(device, non_blocking=True)
-    ctrl_ids = Flux2KleinPipeline._prepare_image_ids([ctrl[:1]]).to(device)
-    hidden = torch.cat([latents, pack_latents(ctrl).expand(B, -1, -1).to(latents.dtype)], dim=1)
+    ctrls = sample.get("ctrls") or [sample["ctrl"]]
+    ctrls = [c.to(device, non_blocking=True) for c in ctrls]
+    ctrl_ids = Flux2KleinPipeline._prepare_image_ids([c[:1] for c in ctrls]).to(device)
+    hidden = torch.cat([latents] + [pack_latents(c).expand(B, -1, -1).to(latents.dtype) for c in ctrls], dim=1)
     return hidden, torch.cat([img_ids, ctrl_ids.expand(B, -1, -1)], dim=1), txt_ids
 
 
@@ -896,6 +896,15 @@ def train_klein9b():
             if os.path.exists(path):
                 t = torch.load(path, weights_only=True).to(torch.bfloat16)
                 sample[key] = t.pin_memory() if pin else t
+        if "ctrl" in sample:
+            ctrls = [sample["ctrl"]]
+            index = 2
+            while os.path.exists(f"{CACHE_DIR}/{nombre}_ctrl_{index}.pt"):
+                extra = torch.load(f"{CACHE_DIR}/{nombre}_ctrl_{index}.pt", weights_only=True).to(torch.bfloat16)
+                ctrls.append(extra.pin_memory() if pin else extra)
+                index += 1
+            if len(ctrls) > 1:
+                sample["ctrls"] = ctrls
         return sample
 
     for f in os.listdir(CACHE_DIR):
