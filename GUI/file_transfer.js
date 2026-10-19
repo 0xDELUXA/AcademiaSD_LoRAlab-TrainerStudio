@@ -144,6 +144,12 @@ function ftRetryButton() {
     };
 }
 
+function ftEscape(value) {
+    return String(value).replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+}
+
 async function ftDownload() {
     // 'Final LoRA Filename' (ya lleva el Project Name): el servidor lo usa para nombrar la
     // descarga del final y de los checkpoints (_<pasos>_steps). No cambia nada en disco.
@@ -161,13 +167,13 @@ async function ftDownload() {
     }
     const rows = data.files.length
         ? data.files.map(f => `<a href="/api/download-output/${encodeURIComponent(f.name)}?final_name=${encodeURIComponent(finalName)}" download
-              style="display:flex;justify-content:space-between;gap:16px;padding:8px 10px;border-radius:6px;color:var(--text-main);text-decoration:none;background:var(--bg-dark);border:1px solid var(--panel-border);">
-              <span>⬇ ${f.download_name || f.name}</span><span style="color:var(--text-muted);">${(f.size / 1048576).toFixed(1)} MB</span></a>`).join('')
+              style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:8px 10px;border-radius:6px;color:var(--text-main);text-decoration:none;background:var(--bg-dark);border:1px solid var(--panel-border);min-width:0;">
+              <span title="${ftEscape(f.download_name || f.name)}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">⬇ ${ftEscape(f.download_name || f.name)}</span><span style="flex:0 0 auto;white-space:nowrap;color:var(--text-muted);">${(f.size / 1048576).toFixed(1)} MB</span></a>`).join('')
         : `<div style="color:var(--text-muted);">${t('No LoRA yet.')}</div>`;
     box.innerHTML = `<div style="width:min(560px,92vw);max-height:80vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:20px;
             background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:12px;">
         <div style="font-weight:700;">${t('⬇ Download LoRA')}</div>
-        <div style="font-size:0.78rem;color:var(--text-muted);word-break:break-all;">${data.path}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);word-break:break-all;">${ftEscape(data.path)}</div>
         ${rows}
         <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('ft-modal').remove()">${t('Close')}</button>
     </div>`;
