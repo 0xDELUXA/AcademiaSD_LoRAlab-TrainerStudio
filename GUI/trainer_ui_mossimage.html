@@ -1665,9 +1665,10 @@
         let captionModeShown = 'normal';
 
         function switchCaptionMode() {
+            // Primero se guarda lo escrito en el cuadro; si no, se perdía al pulsar Create Captions.
+            captionPrompts.normal = document.getElementById('caption_prompt_text').value;
             captionModeShown = 'normal';
             document.getElementById('caption_mode').value = 'normal';
-            document.getElementById('caption_prompt_text').value = captionPrompts.normal;
         }
 
         async function loadCaptionSettings() {
