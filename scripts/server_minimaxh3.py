@@ -524,6 +524,9 @@ def save_train():
         output_dir_name = f"MiniMaxH3_lora_output_{proj}" if proj else "MiniMaxH3_lora_output"
         data["cache_dir"] = f"./{cache_dir_name}"
         data["output_dir"] = f"./{output_dir_name}"
+        # Lo que había antes: con el entrenamiento en marcha, la GUI avisa solo de lo que ha cambiado.
+        previous = read_json_file(TRAIN_CONFIG, {})
+
         write_json_file(TRAIN_CONFIG, data)
         saved_files = [TRAIN_CONFIG.name]
         if proj:
@@ -532,7 +535,7 @@ def save_train():
             output_json_file = output_dir_path / f"train_settings_{proj}.json"
             write_json_file(output_json_file, data)
             saved_files.append(f"{output_dir_name}/{output_json_file.name}")
-        return jsonify({"status": "ok", "file": saved_files[0], "all_saved": saved_files})
+        return jsonify({"status": "ok", "previous": previous, "file": saved_files[0], "all_saved": saved_files})
     except Exception as exc:
         return jsonify({"status": "error", "error": str(exc)}), 500
 

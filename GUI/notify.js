@@ -92,3 +92,34 @@ function askConfirm(message, options = {}) {
         cancel.focus();
     });
 }
+
+// Save JSON con el entrenamiento en marcha: dice solo lo que ha cambiado y cuándo lo aplica el trainer.
+// Cada GUI pasa su mapa {live|resume|new|restart: {clave del json: id del campo}}, sacado del código de
+// su trainer; la etiqueta del campo se lee de la propia GUI, ya traducida.
+// Lo último cargado o guardado: la referencia si el servidor no devuelve "previous" (uno arrancado antes).
+let lastTrainSaved = {};
+
+function liveFieldLabel(id) {
+    const el = document.getElementById(id);
+    const label = el && (el.closest('label') || (el.parentElement && el.parentElement.querySelector('label')));
+    return (label ? label.innerText : id).replace(/\s*\(.*?\)\s*/g, ' ').replace(/[:\s]+$/, '').trim();
+}
+
+function liveChangesText(previous, saved, apply) {
+    const show = v => v === true ? '✓' : v === false ? '✗' : String(v ?? '') === '' ? '—'
+        : (String(v).length > 40 ? String(v).slice(0, 40) + '…' : String(v));
+    const groups = [
+        ['live', t('Applied on the next step, without stopping:')],
+        ['resume', t('Applied after Stop -> Resume:')],
+        ['new', t("Only in a new training (Resume keeps the checkpoint's LoRA):")],
+        ['restart', t('Only in a new training: the checkpoint no longer matches and Resume cannot continue it:')],
+    ];
+    const blocks = [];
+    for (const [kind, title] of groups) {
+        const lines = Object.entries(apply[kind] || {})
+            .filter(([key]) => key in saved && String(previous[key] ?? '') !== String(saved[key] ?? ''))
+            .map(([key, id]) => `   • ${liveFieldLabel(id)}: ${show(previous[key])} → ${show(saved[key])}`);
+        if (lines.length) blocks.push(title + '\n' + lines.join('\n'));
+    }
+    return blocks.length ? blocks.join('\n\n') : t('Training is running: nothing has changed since the last save.');
+}

@@ -33,6 +33,9 @@ Ideogram4-NF4/
 Qwen-Image-2512-NF4/
 Boogu-image-edit-Raw/
 Boogu-image-edit-NF4/
+Ming-Image_NF4/
+Ming-Image_Raw/
+Ming-Image-Raw/
 
 # Ejecuciones / Runs
 cached_data_*/
@@ -51,3 +54,6 @@ HF_token.json
 *.bak
 preview_edit_images/
 tools/all-smi/
+
+# Descarga de prueba del paquete NF4 publicado
+Ming-Image_NF4_HF/

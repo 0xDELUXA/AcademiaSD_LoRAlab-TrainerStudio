@@ -508,6 +508,9 @@ def save_train():
         data["output_dir"] = f"./{output_dir_name}"
 
         # 1. Guardar en raíz con nombre genérico
+        # Lo que había antes: con el entrenamiento en marcha, la GUI avisa solo de lo que ha cambiado.
+        previous = read_json_file(TRAIN_CONFIG, {})
+
         write_json_file(TRAIN_CONFIG, data)
 
         # El Pre-Cache codifica el prompt de las previews desde su propio json.
@@ -526,7 +529,7 @@ def save_train():
             write_json_file(output_json_file, data)
             saved_files.append(f"{output_dir_name}/{output_json_file.name}")
 
-        return jsonify({"status": "ok", "file": saved_files[0], "all_saved": saved_files})
+        return jsonify({"status": "ok", "previous": previous, "file": saved_files[0], "all_saved": saved_files})
     except Exception as exc:
         return jsonify({"status": "error", "error": str(exc)}), 500
 

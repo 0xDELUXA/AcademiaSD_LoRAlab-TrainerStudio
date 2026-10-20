@@ -1115,5 +1115,18 @@
   "The model the LoRA is trained on, and the one to use it with in ComfyUI. Qwen-Image-2512 generates from text; Qwen-Image-Edit-2511 edits an image. They are separate fine-tunes of Qwen-Image, so a LoRA trained on one is not guaranteed to work on the other. An edit LoRA (before / after pairs) always uses Edit-2511.": "Das Modell, auf dem die LoRA trainiert wird und mit dem sie in ComfyUI benutzt werden muss. Qwen-Image-2512 erzeugt aus Text; Qwen-Image-Edit-2511 bearbeitet ein Bild. Es sind getrennte Fine-Tunes von Qwen-Image, eine auf dem einen trainierte LoRA funktioniert also nicht unbedingt auf dem anderen. Eine Edit-LoRA (Vorher-/Nachher-Paare) verwendet immer Edit-2511.",
   "Writes one .txt per image with Qwen3-VL-8B (NF4, ~5.5 GB VRAM), with the trigger word first. It is shared by every trainer: ~5 GB are downloaded only the first time.": "Schreibt eine .txt pro Bild mit Qwen3-VL-8B (NF4, ~5,5 GB VRAM), mit dem Trigger-Wort am Anfang. Alle Trainer teilen ihn: ~5 GB werden nur beim ersten Mal heruntergeladen.",
   "The cache has before/after pairs: an edit LoRA needs Qwen-Image-Edit-2511 as the base model.": "Der Cache enthält Vorher/Nachher-Paare: eine Edit-LoRA braucht Qwen-Image-Edit-2511 als Basismodell.",
-  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "Der gespeicherte Checkpoint passt nicht zu diesen LoRA-Einstellungen (Rank, LoKr...); ein neues Training beginnt."
+  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "Der gespeicherte Checkpoint passt nicht zu diesen LoRA-Einstellungen (Rank, LoKr...); ein neues Training beginnt.",
+  "4-bit on CPU failed ({err}); falling back to BF16.": "4-Bit auf der CPU fehlgeschlagen ({err}); es wird BF16 verwendet.",
+  "The model did not return the image conditioning embeddings.": "Das Modell hat keine Bild-Conditioning-Embeddings zurückgegeben.",
+  "Invalid Text Encoder {name}. Using NF4.": "Ungültiger Text Encoder {name}. Es wird NF4 verwendet.",
+  "The MLLM of {path} is already NF4; BF16 needs the original checkpoint. Using NF4.": "Das MLLM in {path} ist bereits NF4; BF16 benötigt den Original-Checkpoint. Es wird NF4 verwendet.",
+  "JSON without layers": "JSON ohne Ebenen",
+  "JSON without the Ming-Image caption keys": "JSON ohne die Ming-Image-Caption-Schlüssel",
+  "Layer without valid coordinates, using the full canvas: {desc}": "Ebene ohne gültige Koordinaten, es wird die ganze Leinwand verwendet: {desc}",
+  "image too small": "Bild zu klein",
+  "Applied on the next step, without stopping:": "Wird im nächsten Schritt übernommen, ohne Anhalten:",
+  "Applied after Stop -> Resume:": "Wird nach Stop -> Resume übernommen:",
+  "Only in a new training (Resume keeps the checkpoint's LoRA):": "Nur in einem neuen Training (Resume setzt den LoRA des Checkpoints fort):",
+  "Training is running: nothing has changed since the last save.": "Das Training läuft: seit dem letzten Speichern hat sich nichts geändert.",
+  "Only in a new training: the checkpoint no longer matches and Resume cannot continue it:": "Nur in einem neuen Training: der Checkpoint passt nicht mehr und Resume kann ihn nicht fortsetzen:"
 }

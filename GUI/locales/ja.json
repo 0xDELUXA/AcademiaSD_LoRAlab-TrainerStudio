@@ -1115,5 +1115,18 @@
   "The model the LoRA is trained on, and the one to use it with in ComfyUI. Qwen-Image-2512 generates from text; Qwen-Image-Edit-2511 edits an image. They are separate fine-tunes of Qwen-Image, so a LoRA trained on one is not guaranteed to work on the other. An edit LoRA (before / after pairs) always uses Edit-2511.": "LoRA を学習するモデルで、ComfyUI で一緒に使うモデルでもあります。Qwen-Image-2512 はテキストから生成し、Qwen-Image-Edit-2511 は画像を編集します。どちらも Qwen-Image の別々のファインチューンなので、一方で学習した LoRA がもう一方で動く保証はありません。編集 LoRA(ビフォー / アフターのペア)は常に Edit-2511 を使います。",
   "Writes one .txt per image with Qwen3-VL-8B (NF4, ~5.5 GB VRAM), with the trigger word first. It is shared by every trainer: ~5 GB are downloaded only the first time.": "Qwen3-VL-8B(NF4、VRAM 約 5.5 GB)で画像ごとに .txt を 1 つ書き、トリガーワードを先頭に置きます。すべてのトレーナーで共有され、約 5 GB を初回だけダウンロードします。",
   "The cache has before/after pairs: an edit LoRA needs Qwen-Image-Edit-2511 as the base model.": "キャッシュにビフォー/アフターのペアがあります。編集 LoRA にはベースモデルとして Qwen-Image-Edit-2511 が必要です。",
-  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "保存されたチェックポイントはこの LoRA 設定(rank、LoKr など)と一致しません。新しい学習を開始します。"
+  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "保存されたチェックポイントはこの LoRA 設定(rank、LoKr など)と一致しません。新しい学習を開始します。",
+  "4-bit on CPU failed ({err}); falling back to BF16.": "CPU での 4 ビットに失敗しました ({err})。BF16 を使用します。",
+  "The model did not return the image conditioning embeddings.": "モデルが画像の条件付け埋め込みを返しませんでした。",
+  "Invalid Text Encoder {name}. Using NF4.": "無効な Text Encoder {name}。NF4 を使用します。",
+  "The MLLM of {path} is already NF4; BF16 needs the original checkpoint. Using NF4.": "{path} の MLLM はすでに NF4 です。BF16 には元のチェックポイントが必要です。NF4 を使用します。",
+  "JSON without layers": "レイヤーのない JSON",
+  "JSON without the Ming-Image caption keys": "Ming-Image のキャプションキーがない JSON",
+  "Layer without valid coordinates, using the full canvas: {desc}": "有効な座標のないレイヤー。キャンバス全体を使用します: {desc}",
+  "image too small": "画像が小さすぎます",
+  "Applied on the next step, without stopping:": "停止せずに次のステップで適用:",
+  "Applied after Stop -> Resume:": "Stop -> Resume 後に適用:",
+  "Only in a new training (Resume keeps the checkpoint's LoRA):": "新しい学習のみ (Resume はチェックポイントの LoRA を継続します):",
+  "Training is running: nothing has changed since the last save.": "学習中です: 前回の保存から変更はありません。",
+  "Only in a new training: the checkpoint no longer matches and Resume cannot continue it:": "新しい学習のみ: チェックポイントが一致しなくなり、Resume では続行できません:"
 }

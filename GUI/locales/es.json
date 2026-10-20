@@ -1177,5 +1177,18 @@
   "Official attention layers (recommended)": "Capas oficiales de atención (recomendado)",
   "Could not save Pre-Cache settings.": "No se pudieron guardar los ajustes de pre-cache.",
   "Could not start Pre-Cache: {error}": "No se pudo iniciar la pre-cache: {error}",
-  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "El checkpoint guardado no coincide con estos ajustes del LoRA (rank, LoKr...); se empieza un entrenamiento nuevo."
+  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "El checkpoint guardado no coincide con estos ajustes del LoRA (rank, LoKr...); se empieza un entrenamiento nuevo.",
+  "4-bit on CPU failed ({err}); falling back to BF16.": "El 4 bits en CPU ha fallado ({err}); se usa BF16.",
+  "The model did not return the image conditioning embeddings.": "El modelo no ha devuelto los embeddings de condición de la imagen.",
+  "Invalid Text Encoder {name}. Using NF4.": "Text Encoder inválido {name}. Usando NF4.",
+  "The MLLM of {path} is already NF4; BF16 needs the original checkpoint. Using NF4.": "El MLLM de {path} ya está en NF4; BF16 necesita el checkpoint original. Usando NF4.",
+  "JSON without layers": "JSON sin capas",
+  "JSON without the Ming-Image caption keys": "JSON sin las claves del caption de Ming-Image",
+  "Layer without valid coordinates, using the full canvas: {desc}": "Capa sin coordenadas válidas, se usa el lienzo completo: {desc}",
+  "image too small": "imagen demasiado pequeña",
+  "Applied on the next step, without stopping:": "Se aplica en el paso siguiente, sin parar:",
+  "Applied after Stop -> Resume:": "Se aplica al hacer Stop -> Resume:",
+  "Only in a new training (Resume keeps the checkpoint's LoRA):": "Solo en un entrenamiento nuevo (al reanudar se sigue con el LoRA del checkpoint):",
+  "Training is running: nothing has changed since the last save.": "El entrenamiento está en marcha: no ha cambiado nada desde el último guardado.",
+  "Only in a new training: the checkpoint no longer matches and Resume cannot continue it:": "Solo en un entrenamiento nuevo: el checkpoint ya no encaja y Resume no puede seguirlo:"
 }
