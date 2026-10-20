@@ -335,6 +335,14 @@
                     </div>
 
                     <div class="form-group">
+                        <label title="Normal: text-to-image, one image + JSON caption per sample (in a name_before / name_after pair, the _after with name_after.txt). Edit: image-edit, name_before / name_after pairs + one instruction in name.txt; the model sees the before image and learns to produce the after.">LoRA Type:</label>
+                        <select id="lora_type" onchange="applyLoraType(true)">
+                            <option value="normal">Normal LoRA (text-to-image)</option>
+                            <option value="edit">Edit LoRA (before / after pairs)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
                         <label>Cache Folder (Auto):</label>
                         <input type="text" id="precache_cache_dir" value="./cached_data_mingimage" readonly title="Path generated automatically, for information">
                     </div>
@@ -607,6 +615,17 @@
                     <div class="form-group" id="custom_prompt_container" style="display:none; margin-top: 4px;">
                         <label style="color:#38bdf8; font-weight:600;">Custom Preview Prompt:</label>
                         <textarea id="train_preview_custom_prompt" rows="2" placeholder="Write your custom prompt for the preview here..."></textarea>
+                        <div id="edit_image_container" style="display:none;">
+                        <label style="color:#38bdf8; font-weight:600; margin-top:6px;"
+                               title="Edit LoRA only. The preview applies the instruction above to this image. Use one that is NOT in the dataset: it is the only way to see whether the effect generalizes. Empty = the 'before' of the first pair. Encoded by Pre-Cache, or on Save JSON while training.">
+                            Edit Preview Image (before):</label>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" id="preview_edit_image" value="" placeholder="(empty = first pair)">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="browseImageNative()">Browse</button>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="uploadPreviewEditImage()"
+                                    title="RunPod / remote access: sends the image from this device to the training PC and fills the path here. Use it when Browse cannot open.">⬆ Upload</button>
+                        </div>
+                        </div>
                     </div>
 
                     <div class="form-row">
@@ -686,6 +705,11 @@
                             title="Writes one .txt per image with Qwen3-VL-8B (NF4, ~5.5 GB VRAM), with the trigger word first. The first time it downloads ~5 GB to Captioner-Qwen3-VL-8B/ (shared with the other trainers).">
                         <span id="btn-caption-label">Create Captions</span>
                     </button>
+                    <select class="ds-mode-select" id="caption_mode" onchange="switchCaptionMode(); syncLoraType()"
+                            title="Normal: one Figma-style JSON per image, Ming-Image's text-to-image format. Edit: one imperative instruction per name_before / name_after pair, saved as name.txt (the image-edit prompt). Each mode keeps its own prompt.">
+                        <option value="normal">Normal (JSON caption)</option>
+                        <option value="edit">Edit (before → after)</option>
+                    </select>
                     <span class="ds-step-hint">Qwen3-VL-8B · before Pre-Cache</span>
                     <label class="ds-inline-label" title="Off = only images with no caption are processed.">
                         <input type="checkbox" id="caption_overwrite" checked>
@@ -765,6 +789,24 @@
             const icon = headerEl.querySelector('.toggle-icon');
             if (icon) {
                 icon.innerText = panel.classList.contains('collapsed') ? '▼' : '▲';
+            }
+        }
+
+        // Un modo de caption de edición implica un LoRA de edición, y al revés: así el pre-caché recibe los pares.
+        function syncLoraType() {
+            const edit = document.getElementById('caption_mode').value === 'edit';
+            document.getElementById('lora_type').value = edit ? 'edit' : 'normal';
+            applyLoraType(true);
+        }
+
+        async function applyLoraType(save = false) {
+            const edit = document.getElementById('lora_type').value === 'edit';
+            document.getElementById('edit_image_container').style.display = edit ? 'block' : 'none';
+            // El Dataset Manager enseña el caption del tipo elegido (JSON del _after o instrucción del par),
+            // y lo decide el servidor con el json del pre-caché: se guarda antes de recargar la rejilla.
+            if (save) {
+                await savePrecacheSettings(true);
+                loadDatasetInfo();
             }
         }
 
@@ -900,6 +942,8 @@
                     }
                     if (p.multiple) document.getElementById('precache_multiple').value = p.multiple;
                     if (p.max_side) document.getElementById('precache_max_side').value = p.max_side;
+                    document.getElementById('lora_type').value = p.lora_type === 'edit' ? 'edit' : 'normal';
+                    applyLoraType();
                 }
                 if (data.train) {
                     const t = data.train;
@@ -927,6 +971,7 @@
                         toggleCaptionMode(t.preview_caption_mode);
                     }
                     if (t.preview_custom_prompt !== undefined) document.getElementById('train_preview_custom_prompt').value = t.preview_custom_prompt;
+                    if (t.preview_edit_image !== undefined) document.getElementById('preview_edit_image').value = t.preview_edit_image;
                     if (t.preview_steps !== undefined) document.getElementById('train_preview_steps').value = t.preview_steps;
                     if (t.preview_cfg !== undefined) document.getElementById('train_preview_cfg').value = t.preview_cfg;
                     if (t.preview_size !== undefined) document.getElementById('train_preview_size').value = String(t.preview_size);
@@ -970,6 +1015,10 @@
                     }
                     if (data.multiple !== undefined) document.getElementById('precache_multiple').value = data.multiple;
                     if (data.max_side !== undefined) document.getElementById('precache_max_side').value = data.max_side;
+                    if (data.lora_type !== undefined) {
+                        document.getElementById('lora_type').value = data.lora_type === 'edit' ? 'edit' : 'normal';
+                        applyLoraType();
+                    }
                     
                     if (data.total_steps !== undefined) document.getElementById('train_total_steps').value = data.total_steps;
                     if (data.lr !== undefined) document.getElementById('train_lr').value = data.lr;
@@ -994,6 +1043,7 @@
                         toggleCaptionMode(data.preview_caption_mode);
                     }
                     if (data.preview_custom_prompt !== undefined) document.getElementById('train_preview_custom_prompt').value = data.preview_custom_prompt;
+                    if (data.preview_edit_image !== undefined) document.getElementById('preview_edit_image').value = data.preview_edit_image;
                     if (data.preview_steps !== undefined) document.getElementById('train_preview_steps').value = data.preview_steps;
                     if (data.preview_cfg !== undefined) document.getElementById('train_preview_cfg').value = data.preview_cfg;
                     if (data.preview_size !== undefined) document.getElementById('train_preview_size').value = String(data.preview_size);
@@ -1049,6 +1099,47 @@
 
         // El servidor lee la ruta del dataset de pre_cache_settings_mingimage.json: hay que guardarla ANTES de
         // refrescar el Dataset Manager, o seguiría mostrando la carpeta anterior.
+        async function browseImageNative() {
+            const current = document.getElementById('preview_edit_image').value;
+            try {
+                const res = await fetch('/api/select-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initial_path: current })
+                });
+                const data = await res.json();
+                if (data.status === 'ok' && data.path) document.getElementById('preview_edit_image').value = data.path;
+                else if (data.status === 'error') toast(data.error + ' ' + t('Use the Upload button: the native dialog runs on the training PC.'), 'warning');
+            } catch (e) { toast('Error: ' + e, 'error'); }
+        }
+
+        // Remote / RunPod: el diálogo nativo se abriría en el PC del entrenador, que puede no tener
+        // pantalla. Con Upload la imagen viaja por HTTP y la ruta que queda es la del servidor.
+        // The native dialog would open on the training PC, which may have no screen. Upload sends
+        // the image over HTTP and the path left in the field is the server's.
+        function uploadPreviewEditImage() {
+            const picker = document.createElement('input');
+            picker.type = 'file';
+            picker.accept = 'image/png,image/jpeg,image/webp';
+            picker.onchange = async () => {
+                const file = picker.files && picker.files[0];
+                if (!file) return;
+                const form = new FormData();
+                form.append('files', file, file.name);
+                try {
+                    const res = await fetch('/api/upload-preview-image', { method: 'POST', body: form });
+                    const data = await res.json();
+                    if (data.status === 'ok' && data.path) {
+                        document.getElementById('preview_edit_image').value = data.path;
+                        toast(t('Image uploaded'), 'success');
+                    } else {
+                        toast(data.error || t('Upload failed'), 'error');
+                    }
+                } catch (e) { toast('Error: ' + e, 'error'); }
+            };
+            picker.click();
+        }
+
         async function datasetPathChanged() {
             await savePrecacheSettings(true);
         }
@@ -1063,7 +1154,9 @@
                 multiple: parseInt(document.getElementById('precache_multiple').value),
                 max_side: parseInt(document.getElementById('precache_max_side').value),
                 cache_dir: document.getElementById('precache_cache_dir').value,
-                preview_custom_prompt: document.getElementById('train_preview_custom_prompt').value.trim()
+                preview_custom_prompt: document.getElementById('train_preview_custom_prompt').value.trim(),
+                lora_type: document.getElementById('lora_type').value,
+                preview_edit_image: document.getElementById('preview_edit_image').value.trim()
             };
             const res = await fetch('/api/save-precache', { method: 'POST', body: JSON.stringify(precacheData) });
             const data = await res.json();
@@ -1124,7 +1217,8 @@
             live: { total_steps: 'train_total_steps', lr: 'train_lr', save_every: 'train_save_every',
                     seed: 'train_seed', preview_every: 'train_preview_every',
                     preview_caption_mode: 'train_preview_caption_mode',
-                    preview_custom_prompt: 'train_preview_custom_prompt', preview_steps: 'train_preview_steps',
+                    preview_custom_prompt: 'train_preview_custom_prompt', preview_edit_image: 'preview_edit_image',
+                    preview_steps: 'train_preview_steps',
                     preview_cfg: 'train_preview_cfg', preview_size: 'train_preview_size' },
             resume: { trigger_word: 'trigger_word', lr_scheduler: 'train_lr_scheduler',
                       warmup_steps: 'train_warmup_steps', lr_cycles: 'train_lr_cycles', batch_size: 'train_batch_size',
@@ -1161,6 +1255,8 @@
                 preview_every: parseInt(document.getElementById('train_preview_every').value),
                 preview_caption_mode: document.getElementById('train_preview_caption_mode').value,
                 preview_custom_prompt: document.getElementById('train_preview_custom_prompt').value.trim(),
+                preview_edit_image: document.getElementById('preview_edit_image').value.trim(),
+                lora_type: document.getElementById('lora_type').value,
                 preview_steps: parseInt(document.getElementById('train_preview_steps').value),
                 preview_cfg: parseFloat(document.getElementById('train_preview_cfg').value),
                 preview_size: parseInt(document.getElementById('train_preview_size').value),
@@ -1579,12 +1675,37 @@
         // Mismo prompt por defecto que 0_caption_mingimage.py; se guarda en caption_settings_mingimage.json al ejecutar.
         const DEFAULT_CAPTION_PROMPT = "Describe this image as one precise, high-resolution Figma-style caption. Return only one JSON object.\n\nUse exactly two top-level keys. `canvas_settings` contains exactly `aspect_ratio`, `ambient_lighting` and `image_style`. `layers` lists the visible groups from background to topmost overlay. Every layer contains exactly `description`, `coordinates`, `hierarchy_and_relation` and `color_specs`; `color_specs` is an array of hex colors.\n\n`coordinates` MUST be one string, never an object or array, in exactly this form: \"cx: 0.500, cy: 0.500, w: 1.000, h: 1.000\". Values are normalized 0-1; each bbox encloses its complete owned object and stays inside the canvas.\n\nA layer is one selectable visible semantic group: background, full person, coherent object, panel, card, row, or text block. Prefer the fewest groups that preserve the layout. Keep people and objects intact. Never create invisible parents, guides, placeholders, empty layers, duplicate summaries, or multiple owners for one element.\n\nCopy every legible rendered string character-for-character and as one contiguous string, in its own script. Enumerate intended copy and never hide content behind \"other text\", \"remaining labels\" or \"etc.\".\n\nDescribe concrete composition, typography, materials, texture, lighting, pose and camera treatment without literary filler. Use `hierarchy_and_relation` only for ownership, alignment, containment, stacking and occlusion.\n\nInfer structured layouts first. Use one complete layer per card and state its row and column. A compact secondary table may be one layer only if every header and cell is listed; otherwise use one complete header and one complete layer per body row, binding values to columns and stating blanks. Enumerate sequences, schedules, spans, gaps and vacant tracks in visual order. Do not mistake ordinary alignment for a table.\n\nSilently verify schema, string coordinates, Z-order, exact-text counts, geometry, bbox validity and completeness.";
 
+        // Edición: el mismo que Qwen-Image 2512 y que CAPTION_EDIT_PROMPT de 0_caption_mingimage.py.
+        const DEFAULT_CAPTION_PROMPTS = {
+            normal: DEFAULT_CAPTION_PROMPT,
+            edit: 'The first image is the original and the second image is the edited result. Write ONE '
+                + 'imperative instruction, in at most 40 words, that turns the first image into the second. '
+                + 'Start with a verb such as Colorize, Remove, Replace, Change, Add or Make. Say what changes '
+                + 'and, briefly, what must stay the same. Do not describe content that does not change, do '
+                + "not mention 'first image' or 'second image', and write no preamble."
+        };
+        const CAPTION_PROMPT_KEYS = { normal: 'caption_prompt', edit: 'caption_edit_prompt' };
+        // Los dos prompts viven en memoria; el textarea muestra el del modo elegido.
+        const captionPrompts = { ...DEFAULT_CAPTION_PROMPTS };
+        let captionModeShown = 'normal';
+
+        function switchCaptionMode() {
+            captionPrompts[captionModeShown] = document.getElementById('caption_prompt_text').value;
+            captionModeShown = document.getElementById('caption_mode').value;
+            document.getElementById('caption_prompt_text').value = captionPrompts[captionModeShown];
+        }
+
         async function loadCaptionSettings() {
             let data = {};
             try {
                 data = await (await fetch('/api/caption-settings')).json();
             } catch (e) {}
-            document.getElementById('caption_prompt_text').value = data.caption_prompt || DEFAULT_CAPTION_PROMPT;
+            for (const mode in CAPTION_PROMPT_KEYS) {
+                if (data[CAPTION_PROMPT_KEYS[mode]]) captionPrompts[mode] = data[CAPTION_PROMPT_KEYS[mode]];
+            }
+            captionModeShown = data.caption_mode === 'edit' ? 'edit' : 'normal';
+            document.getElementById('caption_mode').value = captionModeShown;
+            document.getElementById('caption_prompt_text').value = captionPrompts[captionModeShown];
             if (data.overwrite !== undefined) document.getElementById('caption_overwrite').checked = !!data.overwrite;
         }
         loadCaptionSettings();
@@ -1597,12 +1718,15 @@
             }
             // El captioner lee la carpeta del dataset y la palabra clave de pre_cache_settings_mingimage.json.
             await savePrecacheSettings();
+            switchCaptionMode();  // guarda en memoria lo que haya en el textarea
             try {
                 await fetch('/api/save-caption-settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        caption_prompt: document.getElementById('caption_prompt_text').value.trim(),
+                        caption_mode: captionModeShown,
+                        caption_prompt: captionPrompts.normal.trim(),
+                        caption_edit_prompt: captionPrompts.edit.trim(),
                         overwrite: overwrite
                     })
                 });

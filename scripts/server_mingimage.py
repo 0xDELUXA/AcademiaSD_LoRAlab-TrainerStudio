@@ -87,6 +87,8 @@ UI_FILE = BASE_DIR / "GUI" / "trainer_ui_mingimage.html"
 LOGO_FILE = ASSETS_DIR / "logo.png" if (ASSETS_DIR / "logo.png").exists() else BASE_DIR / "logo.png"
 
 PRECACHE_CONFIG = SETTINGS_DIR / "pre_cache_settings_mingimage.json"
+# Se copian entre los dos json: el Pre-Cache codifica con ellos el prompt y la imagen de las previews.
+PREVIEW_KEYS = ("lora_type", "preview_custom_prompt", "preview_edit_image")
 TRAIN_CONFIG = SETTINGS_DIR / "train_settings_mingimage.json"
 HF_TOKEN_CONFIG = SETTINGS_DIR / "HF_token.json"
 EXPORT_CONFIG = SETTINGS_DIR / "export_settings.json"  # compartido / shared by every trainer
@@ -225,6 +227,55 @@ def save_export_settings():
 # =============================================================================
 # REQUESTER NATIVO DE WINDOWS (POPUP SELECCIONAR CARPETA)
 # =============================================================================
+
+@app.route("/api/select-file", methods=["POST"])
+def select_file_native():
+    """Diálogo nativo para elegir una imagen (la de antes de las previews de edición)."""
+    try:
+        initial = str((request.get_json(force=True) or {}).get("initial_path", "")).strip()
+        initial_dir = os.path.dirname(initial) if initial and os.path.exists(os.path.dirname(initial)) else str(BASE_DIR)
+
+        selected_path = None
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            chosen = filedialog.askopenfilename(
+                title=t("Select Image"),
+                initialdir=initial_dir,
+                filetypes=[("Images", "*.png *.jpg *.jpeg *.webp"), ("All files", "*.*")],
+            )
+            root.destroy()
+            if chosen:
+                selected_path = str(Path(chosen).resolve())
+        except Exception:
+            pass
+
+        if not selected_path:
+            try:
+                ps_cmd = (
+                    '[System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null; '
+                    '$dialog = New-Object System.Windows.Forms.OpenFileDialog; '
+                    '$dialog.Filter = "Images|*.png;*.jpg;*.jpeg;*.webp"; '
+                    f'$dialog.InitialDirectory = "{initial_dir}"; '
+                    'if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $dialog.FileName }'
+                )
+                creation_flag = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+                output = subprocess.check_output(["powershell", "-command", ps_cmd], text=True, errors="ignore", creationflags=creation_flag).strip()
+                if output:
+                    selected_path = str(Path(output).resolve())
+            except Exception:
+                pass
+
+        if selected_path:
+            return jsonify({"status": "ok", "path": selected_path})
+        return jsonify({"status": "cancelled", "path": None})
+    except Exception as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 500
+
 
 @app.route("/api/select-folder", methods=["POST"])
 def select_folder_native():
@@ -481,8 +532,9 @@ def save_precache():
             train_cfg["output_dir"] = f"./{output_dir_name}"
         if "trigger_word" in data:
             train_cfg["trigger_word"] = data["trigger_word"]
-        if "preview_custom_prompt" in data:
-            train_cfg["preview_custom_prompt"] = data["preview_custom_prompt"]
+        for key in PREVIEW_KEYS:
+            if key in data:
+                train_cfg[key] = data[key]
 
         write_json_file(TRAIN_CONFIG, train_cfg)
 
@@ -495,16 +547,16 @@ prompt_job = {"process": None, "args": None, "stage": None, "device": None}
 
 
 def encoding_stage():
-    # "loading" o "prompt" mientras se codifica la preview manual; None si no hay nada en marcha.
+    # "loading", "image" o "prompt" mientras se codifica la preview manual; None si no hay nada en marcha.
     process = prompt_job["process"]
     return prompt_job["stage"] if process is not None and process.poll() is None else None
 
 
-def encode_preview_prompt(cache_dir, prompt):
+def encode_preview_prompt(cache_dir, prompt, image):
     # Un solo proceso a la vez: si se guarda otro prompt mientras codifica, gana el último.
     # En GPU si está libre; con el entrenamiento en marcha, en CPU para no tocar su VRAM.
     device = "cpu" if get_status()["script"] == "train" else "cuda"
-    args = [sys.executable, "-u", str(PRECACHE_SCRIPT), "--prompt-only", str(cache_dir), prompt, device]
+    args = [sys.executable, "-u", str(PRECACHE_SCRIPT), "--prompt-only", str(cache_dir), prompt, image, device]
     if encoding_stage() is not None:
         if prompt_job["args"] == args:
             return
@@ -522,7 +574,7 @@ def encode_preview_prompt(cache_dir, prompt):
             print(line, end="", flush=True)
             if prompt_job["process"] is process and line.startswith("[Custom Prompt] "):
                 stage = line[len("[Custom Prompt] "):].split(":", 1)[0].lower()
-                if stage == "prompt":
+                if stage in ("image", "prompt"):
                     prompt_job["stage"] = stage
 
     threading.Thread(target=follow, daemon=True).start()
@@ -548,22 +600,24 @@ def save_train():
         # 1. Guardar en raíz con nombre genérico
         write_json_file(TRAIN_CONFIG, data)
 
-        # El Pre-Cache codifica el prompt de las previews desde su propio json.
+        # El Pre-Cache codifica el prompt y la imagen de las previews desde su propio json.
         precache_cfg = read_json_file(PRECACHE_CONFIG, {})
-        precache_cfg["preview_custom_prompt"] = data.get("preview_custom_prompt", "")
+        for key in PREVIEW_KEYS:
+            precache_cfg[key] = data.get(key, "")
         write_json_file(PRECACHE_CONFIG, precache_cfg)
 
-        # Si la caché no tiene el prompt de preview guardado, se codifica en paralelo (en CPU si se está
-        # entrenando, sin tocar su GPU) y el trainer lo relee antes de la siguiente preview.
+        # Si la caché no tiene el prompt o la imagen de preview guardados, se codifican en paralelo (en CPU
+        # si se está entrenando, sin tocar su GPU) y el trainer los relee antes de la siguiente preview.
         prompt = data.get("preview_custom_prompt", "").strip()
         trigger = data.get("trigger_word", "").strip()
         if trigger and prompt and trigger.lower() not in prompt.lower():
             prompt = f"{trigger}, {prompt}"
         cache_dir = resolve_config_path(data["cache_dir"], cache_dir_name)
-        prompt_file = cache_dir / "_custom_prompt.txt"
-        encoded = prompt_file.read_text(encoding="utf-8") if prompt_file.exists() else None
-        if prompt and prompt != encoded and (cache_dir / "_neg_embed.pt").exists() and get_status()["script"] != "precache":
-            encode_preview_prompt(cache_dir, prompt)
+        wanted = [prompt, data.get("preview_edit_image", "").strip() if data.get("lora_type") == "edit" else ""]
+        encoded = [(cache_dir / f).read_text(encoding="utf-8") if (cache_dir / f).exists() else ""
+                   for f in ("_custom_prompt.txt", "_custom_image.txt")]
+        if prompt and wanted != encoded and (cache_dir / "_neg_embed.pt").exists() and get_status()["script"] != "precache":
+            encode_preview_prompt(cache_dir, *wanted)
         saved_files = [TRAIN_CONFIG.name]
 
         # 2. Guardar copia dentro de la carpeta del proyecto
@@ -664,12 +718,30 @@ def serve_preview(filename):
     return response
 
 
-def caption_path(image_path):
+EDIT_SUFFIXES = ("_before", "_after")
+
+
+def edit_dataset():
+    return read_json_file(PRECACHE_CONFIG, {}).get("lora_type") == "edit"
+
+
+def caption_path(image_path, edit=None):
+    # Ming tiene dos captions para un par: en texto a imagen el JSON del _after (nombre_after.txt) y en
+    # edición la instrucción, una sola para las dos mitades (nombre.txt). Manda el tipo de LoRA elegido.
+    edit = edit_dataset() if edit is None else edit
+    stem = image_path.stem
+    if edit:
+        for suffix in EDIT_SUFFIXES:
+            if stem.endswith(suffix):
+                return image_path.with_name(stem[:-len(suffix)] + ".txt")
     return image_path.with_suffix(".txt")
 
 
 def dataset_caption_paths(dataset_dir):
-    return [caption_path(f) for f in sorted(dataset_dir.iterdir()) if f.is_file() and f.suffix.lower() in DATASET_EXTS]
+    # Un .txt por muestra: en edición los dos lados de un par comparten el suyo y solo cuentan una vez.
+    edit = edit_dataset()
+    return list(dict.fromkeys(caption_path(f, edit) for f in sorted(dataset_dir.iterdir())
+                              if f.is_file() and f.suffix.lower() in DATASET_EXTS))
 
 
 @app.route("/api/dataset-info", methods=["GET"])
@@ -888,7 +960,7 @@ def clear_captions():
 
 @app.route("/api/delete-dataset-image", methods=["POST"])
 def delete_dataset_image():
-    """Borra una imagen del dataset y su .txt."""
+    """Borra una imagen del dataset y su .txt. En edición borra las dos mitades del par: una sola no sirve."""
     try:
         filename = str(request.get_json(force=True).get("file", "")).strip()
         dataset_dir = get_dataset_dir()
@@ -900,8 +972,17 @@ def delete_dataset_image():
         if not target.is_file() or target.suffix.lower() not in DATASET_EXTS:
             return jsonify({"status": "error", "error": t("Not found: {name}", name=filename)}), 404
 
+        files = [target]
+        if edit_dataset():
+            for suffix in EDIT_SUFFIXES:
+                if target.stem.endswith(suffix):
+                    base = target.stem[:-len(suffix)]
+                    files = [f for f in dataset_dir.iterdir() if f.is_file() and f.suffix.lower() in DATASET_EXTS
+                             and f.stem in (base + "_before", base + "_after")]
+        files.append(caption_path(target))
+
         removed = []
-        for f in (target, caption_path(target)):
+        for f in files:
             if f.is_file():
                 f.unlink()
                 removed.append(f.name)

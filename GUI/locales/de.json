@@ -1128,5 +1128,17 @@
   "Applied after Stop -> Resume:": "Wird nach Stop -> Resume übernommen:",
   "Only in a new training (Resume keeps the checkpoint's LoRA):": "Nur in einem neuen Training (Resume setzt den LoRA des Checkpoints fort):",
   "Training is running: nothing has changed since the last save.": "Das Training läuft: seit dem letzten Speichern hat sich nichts geändert.",
-  "Only in a new training: the checkpoint no longer matches and Resume cannot continue it:": "Nur in einem neuen Training: der Checkpoint passt nicht mehr und Resume kann ihn nicht fortsetzen:"
+  "Only in a new training: the checkpoint no longer matches and Resume cannot continue it:": "Nur in einem neuen Training: der Checkpoint passt nicht mehr und Resume kann ihn nicht fortsetzen:",
+  "Edit LoRA only. The preview applies the instruction above to this image. Use one that is NOT in the dataset: it is the only way to see whether the effect generalizes. Empty = the 'before' of the first pair. Encoded by Pre-Cache, or on Save JSON while training.": "Nur Edit-LoRA. Die Vorschau wendet die obige Anweisung auf dieses Bild an. Nimm eines, das NICHT im Datensatz ist: nur so siehst du, ob der Effekt verallgemeinert. Leer = das 'Vorher' des ersten Paares. Kodiert von Pre-Cache oder von Save JSON während des Trainings.",
+  "Edit Preview Image (before):": "Edit-Vorschaubild (vorher):",
+  "LoRA Type:": "LoRA-Typ:",
+  "Normal (JSON caption)": "Normal (JSON-Caption)",
+  "Normal LoRA (text-to-image)": "Normales LoRA (Text-zu-Bild)",
+  "Normal: one Figma-style JSON per image, Ming-Image's text-to-image format. Edit: one imperative instruction per name_before / name_after pair, saved as name.txt (the image-edit prompt). Each mode keeps its own prompt.": "Normal: ein JSON im Figma-Stil pro Bild, das Text-zu-Bild-Format von Ming-Image. Bearbeitung: eine Anweisung im Imperativ pro Paar name_before / name_after, gespeichert als name.txt (der image-edit-Prompt). Jeder Modus behält seinen eigenen Prompt.",
+  "Normal: text-to-image, one image + JSON caption per sample (in a name_before / name_after pair, the _after with name_after.txt). Edit: image-edit, name_before / name_after pairs + one instruction in name.txt; the model sees the before image and learns to produce the after.": "Normal: Text-zu-Bild, ein Bild + JSON-Caption pro Sample (bei einem Paar name_before / name_after das _after mit name_after.txt). Bearbeitung: image-edit, Paare name_before / name_after + eine Anweisung in name.txt; das Modell sieht das Vorher-Bild und lernt, das Nachher zu erzeugen.",
+  "The cache mixes edit pairs and single images: run Pre-Cache again.": "Der Cache mischt Edit-Paare und Einzelbilder: führe Pre-Cache erneut aus.",
+  "The dataset has name_before / name_after pairs: set LoRA Type to Edit to train editing instead of text-to-image.": "Der Datensatz hat Paare name_before / name_after: stelle den LoRA-Typ auf Bearbeitung, um Bearbeitung statt Text-zu-Bild zu trainieren.",
+  "The official image-edit task works at 1024: smaller buckets train faster but are out of its distribution.": "Die offizielle image-edit-Aufgabe arbeitet mit 1024: kleinere Buckets trainieren schneller, liegen aber außerhalb ihrer Verteilung.",
+  "{n} pairs without an instruction in name.txt (only the trigger is used): {names}": "{n} Paare ohne Anweisung in name.txt (nur der Trigger wird verwendet): {names}",
+  "one edit instruction per pair (name.txt)": "eine Bearbeitungsanweisung pro Paar (name.txt)"
 }

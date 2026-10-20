@@ -1128,5 +1128,17 @@
   "Applied after Stop -> Resume:": "Stop -> Resume 後に適用:",
   "Only in a new training (Resume keeps the checkpoint's LoRA):": "新しい学習のみ (Resume はチェックポイントの LoRA を継続します):",
   "Training is running: nothing has changed since the last save.": "学習中です: 前回の保存から変更はありません。",
-  "Only in a new training: the checkpoint no longer matches and Resume cannot continue it:": "新しい学習のみ: チェックポイントが一致しなくなり、Resume では続行できません:"
+  "Only in a new training: the checkpoint no longer matches and Resume cannot continue it:": "新しい学習のみ: チェックポイントが一致しなくなり、Resume では続行できません:",
+  "Edit LoRA only. The preview applies the instruction above to this image. Use one that is NOT in the dataset: it is the only way to see whether the effect generalizes. Empty = the 'before' of the first pair. Encoded by Pre-Cache, or on Save JSON while training.": "編集 LoRA のみ。プレビューは上の指示をこの画像に適用します。データセットに含まれない画像を使ってください。効果が汎化するかを確認できる唯一の方法です。空 = 最初のペアの「前」。Pre-Cache、または学習中の Save JSON でエンコードされます。",
+  "Edit Preview Image (before):": "編集プレビュー画像 (前):",
+  "LoRA Type:": "LoRA タイプ:",
+  "Normal (JSON caption)": "通常 (JSON キャプション)",
+  "Normal LoRA (text-to-image)": "通常 LoRA (テキストから画像)",
+  "Normal: one Figma-style JSON per image, Ming-Image's text-to-image format. Edit: one imperative instruction per name_before / name_after pair, saved as name.txt (the image-edit prompt). Each mode keeps its own prompt.": "通常: 画像ごとに Figma 風の JSON を 1 つ。Ming-Image のテキストから画像の形式です。編集: name_before / name_after のペアごとに命令形の指示を 1 つ、name.txt として保存 (image-edit のプロンプト)。各モードは独自のプロンプトを保持します。",
+  "Normal: text-to-image, one image + JSON caption per sample (in a name_before / name_after pair, the _after with name_after.txt). Edit: image-edit, name_before / name_after pairs + one instruction in name.txt; the model sees the before image and learns to produce the after.": "通常: テキストから画像。サンプルごとに画像 1 枚 + JSON キャプション (name_before / name_after のペアでは _after と name_after.txt)。編集: image-edit。name_before / name_after のペア + name.txt の指示 1 つ。モデルは前の画像を見て、後の画像を生成するよう学習します。",
+  "The cache mixes edit pairs and single images: run Pre-Cache again.": "キャッシュに編集ペアと単独画像が混在しています: Pre-Cache を再実行してください。",
+  "The dataset has name_before / name_after pairs: set LoRA Type to Edit to train editing instead of text-to-image.": "データセットに name_before / name_after のペアがあります: テキストから画像ではなく編集を学習するには、LoRA タイプを編集にしてください。",
+  "The official image-edit task works at 1024: smaller buckets train faster but are out of its distribution.": "公式の image-edit タスクは 1024 で動作します: 小さいバケットは学習が速いですが、分布外です。",
+  "{n} pairs without an instruction in name.txt (only the trigger is used): {names}": "name.txt に指示のないペアが {n} 組 (トリガーのみ使用): {names}",
+  "one edit instruction per pair (name.txt)": "ペアごとに編集指示 1 つ (name.txt)"
 }

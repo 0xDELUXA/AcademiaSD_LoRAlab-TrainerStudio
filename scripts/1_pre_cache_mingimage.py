@@ -67,6 +67,9 @@ DEFAULTS = {
     "project_name": "",
     "trigger_word": "",
     "preview_custom_prompt": "",
+    # "normal" (texto a imagen) o "edit" (pares nombre_before / nombre_after + instrucción).
+    "lora_type": "normal",
+    "preview_edit_image": "",
 }
 
 # ── CARGAR CONFIGURACIÓN / LOAD CONFIG ──────────────────────────────────────
@@ -89,6 +92,8 @@ TEXT_ENCODER = cfg.get("text_encoder", DEFAULTS["text_encoder"])
 TRIGGER_WORD = cfg.get("trigger_word", "")
 PROJECT_NAME = cfg.get("project_name", "").strip()
 PREVIEW_CUSTOM_PROMPT = cfg.get("preview_custom_prompt", "").strip()
+LORA_TYPE    = "edit" if cfg.get("lora_type", DEFAULTS["lora_type"]) == "edit" else "normal"
+PREVIEW_EDIT_IMAGE = cfg.get("preview_edit_image", "").strip() if LORA_TYPE == "edit" else ""
 
 # Formato automático de carpeta de caché según nombre del proyecto
 if PROJECT_NAME:
@@ -114,6 +119,7 @@ print(f"  {t('Target Area'):<22}: {TARGET_AREA} px²")
 print(f"  {t('Max Side'):<22}: {MAX_SIDE}")
 print(f"  {t('Multiple'):<22}: {MULTIPLE}")
 print(f"  {'Text Encoder':<22}: {TEXT_ENCODER}")
+print(f"  {t('LoRA Type'):<22}: {t('edit (before/after pairs)') if LORA_TYPE == 'edit' else 'normal'}")
 
 os.makedirs(DATASET_PATH, exist_ok=True)
 os.makedirs(CACHE_DIR, exist_ok=True)
@@ -297,9 +303,15 @@ def load_text_encoder(device="cuda"):
     return BailingMM2NativeForConditionalGeneration.from_pretrained(MODEL_ID, **kw)
 
 
-def encode_prompt(model, processor, prompt):
-    """Devuelve (cap_feats, cap_feats_2) ya en CPU y en bf16."""
-    messages = [{"role": "HUMAN", "content": [{"type": "text", "text": prompt}]}]
+def encode_prompt(model, processor, prompt, image=None):
+    """
+    Devuelve (cap_feats, cap_feats_2) ya en CPU y en bf16. En edición `image` es el antes: va
+    delante del texto en el mensaje, como en el infer.py oficial (image-edit), y el ViT lo mete
+    en las dos condiciones. La tarea se declara text-to-image porque la validación de image-edit
+    pide el tensor de referencia del DiT, que aquí no se usa (el latente va aparte, en _ctrl).
+    """
+    content = ([{"type": "image", "image": image}] if image is not None else []) + [{"type": "text", "text": prompt}]
+    messages = [{"role": "HUMAN", "content": content}]
     text = processor.apply_chat_template(messages, add_generation_prompt=True)
     image_inputs, video_inputs, _ = processor.process_vision_info(messages)
 
@@ -335,18 +347,21 @@ def fit(img, bw, bh):
 
 
 def find_samples():
-    """[(nombre, ruta)]: cada imagen es una muestra. En un par nombre_before/nombre_after se
-    ignora el _before (es la entrada de una edición, no el objetivo de un modelo texto→imagen)."""
+    """
+    ([(nombre, ruta del objetivo, ruta del antes o None)], _before saltados).
+    Normal: cada imagen es una muestra; en un par se ignora el _before (es la entrada de una
+    edición, no el objetivo de un texto→imagen) y el caption es el de nombre_after.txt.
+    Edit: solo los pares; la muestra se llama como el par y su instrucción está en nombre.txt.
+    """
     files = sorted(f for f in os.listdir(DATASET_PATH) if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp")))
-    stems = {os.path.splitext(f)[0] for f in files}
-    samples, skipped = [], 0
-    for name in files:
-        stem = os.path.splitext(name)[0]
-        if stem.endswith("_before") and stem[:-len("_before")] + "_after" in stems:
-            skipped += 1
-            continue
-        samples.append((stem, os.path.join(DATASET_PATH, name)))
-    return samples, skipped
+    stems = {os.path.splitext(f)[0]: f for f in files}
+    pairs = [s[:-len("_before")] for s in stems if s.endswith("_before") and s[:-len("_before")] + "_after" in stems]
+    if LORA_TYPE == "edit":
+        return [(base, os.path.join(DATASET_PATH, stems[base + "_after"]), os.path.join(DATASET_PATH, stems[base + "_before"]))
+                for base in pairs], 0
+    paired_before = {base + "_before" for base in pairs}
+    samples = [(stem, os.path.join(DATASET_PATH, f), None) for stem, f in stems.items() if stem not in paired_before]
+    return samples, len(paired_before)
 
 
 def read_caption(name):
@@ -357,7 +372,7 @@ def read_caption(name):
         return f.read().strip()
 
 
-def encode_latents(vae, jobs):
+def encode_latents(vae, jobs, device="cuda"):
     z_dim = vae.config.z_dim
     scaling = vae.config.scaling_factor
     shift = vae.config.shift_factor or 0.0
@@ -369,7 +384,7 @@ def encode_latents(vae, jobs):
 
             img_tensor = F_vision.pil_to_tensor(img).unsqueeze(0).unsqueeze(2)
             img_tensor = (img_tensor.float() / 127.5) - 1.0
-            img_tensor = img_tensor.to("cuda", dtype=vae.dtype)
+            img_tensor = img_tensor.to(device, dtype=vae.dtype)
 
             z = vae.encode(img_tensor).latent_dist.mode().float()
             latent = ((z - shift) * scaling)
@@ -387,21 +402,42 @@ def encode_latents(vae, jobs):
             print(f"[{idx}/{len(jobs)}] {t('Image')}: {os.path.basename(src)} -> {out} | {bw}x{bh}", flush=True)
 
 
+def preview_edit_source(samples, image_path=None):
+    # Antes de la preview de edición: la imagen elegida (fuera del dataset, mide si generaliza)
+    # o, si no hay, el antes del primer par.
+    image_path = PREVIEW_EDIT_IMAGE if image_path is None else image_path
+    return image_path if image_path and os.path.exists(image_path) else samples[0][2]
+
+
+def load_before(path, bucket):
+    # El antes, al mismo bucket que el objetivo: el DiT lo concatena como un segundo fotograma.
+    with Image.open(path) as im:
+        return fit(im.convert("RGBA"), *bucket)
+
+
 def preprocess_mingimage():
     if not os.path.exists(DATASET_PATH):
         print("[!] " + t("Dataset folder does not exist: {path}", path=DATASET_PATH))
         sys.exit(1)
 
     samples, skipped = find_samples()
+    edit = LORA_TYPE == "edit"
     if not samples:
-        print("[!] " + t("No images found in '{path}'. Please add images.", path=DATASET_PATH))
+        if edit:
+            print("[!] " + t("Edit LoRA but there are no name_before / name_after pairs in '{path}'.", path=DATASET_PATH))
+        else:
+            print("[!] " + t("No images found in '{path}'. Please add images.", path=DATASET_PATH))
         sys.exit(1)
-    print(f"  {t('Samples'):<22}: {len(samples)}")
+    print(f"  {t('Samples'):<22}: {len(samples)}" + (f" ({t('before/after pairs')})" if edit else ""))
     if skipped:
         print(f"  {'Pairs':<22}: {skipped} _before skipped (input of an edit, not the target)")
+        print("⚠ " + t("The dataset has name_before / name_after pairs: set LoRA Type to Edit to train editing instead of text-to-image."))
+    if edit and TARGET_AREA < 1024 * 1024:
+        print("⚠ " + t("The official image-edit task works at 1024: smaller buckets train faster but are out of its distribution."))
 
     # El trainer carga todo lo que haya en la caché: se quitan las muestras que ya no están en el dataset.
-    expected = {f"{name}_{suffix}.pt" for name, _ in samples for suffix in ("latent", "embed", "embed2")}
+    suffixes = ("latent", "embed", "embed2") + (("ctrl",) if edit else ())
+    expected = {f"{name}_{suffix}.pt" for name, _, _ in samples for suffix in suffixes}
     stale = [f for f in os.listdir(CACHE_DIR) if f.endswith(".pt") and not f.startswith("_") and f not in expected]
     for f in stale:
         os.remove(os.path.join(CACHE_DIR, f))
@@ -409,6 +445,11 @@ def preprocess_mingimage():
         print("  " + t("Removed {n} stale cache files", n=len(stale)))
 
     ensure_model_downloaded(local_path=MODEL_ID, repo_id=HF_REPO_ID)
+
+    buckets = {}
+    for name, path, _before in samples:
+        with Image.open(path) as im:
+            buckets[name] = bucket_size(*im.size)
 
     # ── FASE 1: MLLM (BailingMoE-V2 + ViT + connector) ──────────────────────
     # El MLLM y el VAE nunca coinciden en VRAM.
@@ -425,30 +466,49 @@ def preprocess_mingimage():
     torch.save(torch.zeros_like(embeds2), os.path.join(CACHE_DIR, "_neg_embed2.pt"))
     print(f"[neg] cap_feats {tuple(embeds.shape)} | directvlm {tuple(embeds2.shape)} (zeros)")
 
-    # Prompt manual de las previews.
+    # Prompt manual de las previews (en edición, con su imagen de antes).
     custom_prompt = PREVIEW_CUSTOM_PROMPT
+    custom_src = preview_edit_source(samples) if edit and custom_prompt else None
+    for f in ("_custom_ctrl.pt", "_custom_image.txt"):
+        if not custom_src and os.path.exists(os.path.join(CACHE_DIR, f)):
+            os.remove(os.path.join(CACHE_DIR, f))
     if custom_prompt:
         c_prompt = with_trigger(custom_prompt)
-        print("[Custom Prompt Cache] " + t("Encoding: '{prompt}'", prompt=c_prompt))
-        c_embeds, c_embeds2 = encode_prompt(model, processor, c_prompt)
+        print("[Custom Prompt Cache] " + t("Encoding: '{prompt}'", prompt=c_prompt)
+              + (f" + {os.path.basename(custom_src)}" if custom_src else ""))
+        if custom_src:
+            with Image.open(custom_src) as im:
+                buckets["_custom"] = bucket_size(*im.size)
+        c_embeds, c_embeds2 = encode_prompt(model, processor, c_prompt,
+                                            load_before(custom_src, buckets["_custom"]) if custom_src else None)
         torch.save(c_embeds, os.path.join(CACHE_DIR, "_custom_embed.pt"))
         torch.save(c_embeds2, os.path.join(CACHE_DIR, "_custom_embed2.pt"))
-        # El trainer y el servidor comparan con este texto para saber si la caché está al día.
+        # El trainer y el servidor comparan con estos textos para saber si la caché está al día.
         with open(os.path.join(CACHE_DIR, "_custom_prompt.txt"), "w", encoding="utf-8") as f:
             f.write(c_prompt)
+        if custom_src:
+            with open(os.path.join(CACHE_DIR, "_custom_image.txt"), "w", encoding="utf-8") as f:
+                f.write(PREVIEW_EDIT_IMAGE)
         print(f"[custom] cap_feats {tuple(c_embeds.shape)} | directvlm {tuple(c_embeds2.shape)}")
     else:
-        for f in ("_custom_embed.pt", "_custom_embed2.pt", "_custom_prompt.txt", "_custom_image.txt"):
+        for f in ("_custom_embed.pt", "_custom_embed2.pt", "_custom_prompt.txt"):
             if os.path.exists(os.path.join(CACHE_DIR, f)):
                 os.remove(os.path.join(CACHE_DIR, f))
 
+    missing = []
     with torch.inference_mode():
-        for idx, (name, _path) in enumerate(samples, 1):
-            caption = with_trigger(read_caption(name))
-            e, e2 = encode_prompt(model, processor, caption)
+        for idx, (name, _path, before) in enumerate(samples, 1):
+            caption = read_caption(name)
+            if edit and not caption:
+                missing.append(name)
+            caption = with_trigger(caption)
+            e, e2 = encode_prompt(model, processor, caption, load_before(before, buckets[name]) if before else None)
             torch.save(e, os.path.join(CACHE_DIR, f"{name}_embed.pt"))
             torch.save(e2, os.path.join(CACHE_DIR, f"{name}_embed2.pt"))
             print(f"[{idx}/{len(samples)}] {t('Text')}: {name} | {e.shape[1]} + {e2.shape[1]} tokens")
+    if missing:
+        print("⚠ " + t("{n} pairs without an instruction in name.txt (only the trigger is used): {names}",
+                      n=len(missing), names=", ".join(missing[:10])))
 
     del model, processor
     free_vram()
@@ -457,9 +517,12 @@ def preprocess_mingimage():
     # Un latente ya cacheado con el tamaño de bucket actual y más nuevo que su imagen no se
     # vuelve a codificar: relanzar el pre-caché para cambiar el prompt manual solo cuesta el texto.
     jobs = []
-    for name, path in samples:
-        with Image.open(path) as im:
-            jobs.append((path, f"{name}_latent.pt", bucket_size(*im.size)))
+    for name, path, before in samples:
+        jobs.append((path, f"{name}_latent.pt", buckets[name]))
+        if before:
+            jobs.append((before, f"{name}_ctrl.pt", buckets[name]))
+    if custom_src:
+        jobs.append((custom_src, "_custom_ctrl.pt", buckets["_custom"]))
 
     pending = []
     for src, out, (bw, bh) in jobs:
@@ -483,20 +546,39 @@ def preprocess_mingimage():
     print("\n✓ " + t("Pre-caching finished! VRAM freed."))
 
 
-def encode_preview_prompt(cache_dir, prompt, device):
+def encode_preview_prompt(cache_dir, prompt, image_path, device):
     """
-    Codifica solo el prompt manual de las previews. Lo lanza el servidor al guardar un prompt
-    nuevo. Sin entrenamiento va en GPU; con el entrenamiento en marcha va en CPU para no tocar
-    su VRAM, y el trainer relee el embedding antes de la siguiente preview.
+    Codifica solo el prompt manual de las previews (y, en edición, su imagen de antes). Lo lanza
+    el servidor al guardar uno nuevo. Sin entrenamiento va en GPU; con el entrenamiento en marcha
+    va en CPU para no tocar su VRAM, y el trainer relee el embedding antes de la siguiente preview.
     """
-    global CACHE_DIR
+    global CACHE_DIR, LORA_TYPE
     CACHE_DIR = cache_dir
     where = device.upper().replace("CUDA", "GPU")
+
+    # La caché dice si el LoRA es de edición (los _ctrl.pt de las muestras), no los ajustes.
+    edit = any(f.endswith("_ctrl.pt") and not f.startswith("_") for f in os.listdir(cache_dir))
+    image = None
+    if edit:
+        LORA_TYPE = "edit"
+        src = preview_edit_source(find_samples()[0], image_path)
+        with Image.open(src) as im:
+            bucket = bucket_size(*im.size)
+        image = load_before(src, bucket)
+        # Se escribe aparte y se coloca al final junto al texto: el antes nuevo no encaja con el embedding viejo.
+        # El servidor lee las líneas "[Custom Prompt] Image/Prompt" para mostrar la fase en la GUI.
+        print("[Custom Prompt] Image: " + t("Encoding the reference image on {device}: {path}", device=where, path=src), flush=True)
+        vae = AutoencoderKLQwenImage.from_pretrained(
+            MODEL_ID, subfolder="vae", dtype=torch.bfloat16 if device == "cuda" else torch.float32).to(device)
+        encode_latents(vae, [(src, "_custom_ctrl.new", bucket)], device)
+        del vae
+        free_vram()
 
     print("[Custom Prompt] Prompt: " + t("Encoding the prompt on {device}: '{prompt}'", device=where, prompt=prompt), flush=True)
     processor = load_bailingmm2_processor(os.path.join(MODEL_ID, "mllm"))
     model = load_text_encoder(device)
-    embeds, embeds2 = encode_prompt(model, processor, prompt)
+    with torch.inference_mode():
+        embeds, embeds2 = encode_prompt(model, processor, prompt, image)
     del model, processor
     free_vram()
 
@@ -506,19 +588,27 @@ def encode_preview_prompt(cache_dir, prompt, device):
         write(tmp)
         os.replace(tmp, os.path.join(cache_dir, name))
 
-    def write_text(path):
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(prompt)
+    def write_text(text):
+        def write(path):
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+        return write
 
-    replace("_custom_prompt.txt", write_text)
+    if image is not None:
+        os.replace(os.path.join(cache_dir, "_custom_ctrl.new"), os.path.join(cache_dir, "_custom_ctrl.pt"))
+        replace("_custom_image.txt", write_text(image_path))
+    replace("_custom_prompt.txt", write_text(prompt))
     replace("_custom_embed2.pt", lambda f: torch.save(embeds2, f))
     replace("_custom_embed.pt", lambda f: torch.save(embeds, f))
     print("[Custom Prompt] " + t("Ready."), flush=True)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 5 and sys.argv[1] == "--prompt-only":
-        # --prompt-only <carpeta de caché> <prompt con el trigger ya puesto> <cuda|cpu>
+    if len(sys.argv) == 6 and sys.argv[1] == "--prompt-only":
+        # --prompt-only <carpeta de caché> <prompt con el trigger ya puesto> <imagen de antes o ""> <cuda|cpu>
         encode_preview_prompt(*sys.argv[2:])
+    elif len(sys.argv) == 5 and sys.argv[1] == "--prompt-only":
+        # Forma anterior, sin imagen (la de un servidor arrancado antes de la edición).
+        encode_preview_prompt(sys.argv[2], sys.argv[3], "", sys.argv[4])
     else:
         preprocess_mingimage()

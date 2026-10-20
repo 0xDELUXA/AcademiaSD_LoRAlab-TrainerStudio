@@ -1128,5 +1128,17 @@
   "Applied after Stop -> Resume:": "Si applica dopo Stop -> Resume:",
   "Only in a new training (Resume keeps the checkpoint's LoRA):": "Solo in un nuovo addestramento (Resume continua con il LoRA del checkpoint):",
   "Training is running: nothing has changed since the last save.": "L'addestramento è in corso: non è cambiato nulla dall'ultimo salvataggio.",
-  "Only in a new training: the checkpoint no longer matches and Resume cannot continue it:": "Solo in un nuovo addestramento: il checkpoint non corrisponde più e Resume non può continuarlo:"
+  "Only in a new training: the checkpoint no longer matches and Resume cannot continue it:": "Solo in un nuovo addestramento: il checkpoint non corrisponde più e Resume non può continuarlo:",
+  "Edit LoRA only. The preview applies the instruction above to this image. Use one that is NOT in the dataset: it is the only way to see whether the effect generalizes. Empty = the 'before' of the first pair. Encoded by Pre-Cache, or on Save JSON while training.": "Solo LoRA di modifica. L'anteprima applica l'istruzione qui sopra a questa immagine. Usane una che NON sia nel dataset: è l'unico modo per vedere se l'effetto generalizza. Vuoto = il 'prima' della prima coppia. Codificata da Pre-Cache, o da Save JSON durante l'addestramento.",
+  "Edit Preview Image (before):": "Immagine di anteprima della modifica (prima):",
+  "LoRA Type:": "Tipo di LoRA:",
+  "Normal (JSON caption)": "Normale (caption JSON)",
+  "Normal LoRA (text-to-image)": "LoRA normale (testo a immagine)",
+  "Normal: one Figma-style JSON per image, Ming-Image's text-to-image format. Edit: one imperative instruction per name_before / name_after pair, saved as name.txt (the image-edit prompt). Each mode keeps its own prompt.": "Normale: un JSON in stile Figma per immagine, il formato testo a immagine di Ming-Image. Modifica: un'istruzione all'imperativo per coppia nome_before / nome_after, salvata come nome.txt (il prompt di image-edit). Ogni modalità mantiene il proprio prompt.",
+  "Normal: text-to-image, one image + JSON caption per sample (in a name_before / name_after pair, the _after with name_after.txt). Edit: image-edit, name_before / name_after pairs + one instruction in name.txt; the model sees the before image and learns to produce the after.": "Normale: testo a immagine, un'immagine + caption JSON per campione (in una coppia nome_before / nome_after, l'_after con nome_after.txt). Modifica: image-edit, coppie nome_before / nome_after + un'istruzione in nome.txt; il modello vede l'immagine prima e impara a produrre il dopo.",
+  "The cache mixes edit pairs and single images: run Pre-Cache again.": "La cache mescola coppie di modifica e immagini singole: esegui di nuovo il Pre-Cache.",
+  "The dataset has name_before / name_after pairs: set LoRA Type to Edit to train editing instead of text-to-image.": "Il dataset ha coppie nome_before / nome_after: imposta il tipo di LoRA su Modifica per addestrare la modifica invece del testo a immagine.",
+  "The official image-edit task works at 1024: smaller buckets train faster but are out of its distribution.": "Il compito image-edit ufficiale lavora a 1024: i bucket più piccoli addestrano più in fretta ma sono fuori dalla sua distribuzione.",
+  "{n} pairs without an instruction in name.txt (only the trigger is used): {names}": "{n} coppie senza istruzione in nome.txt (si usa solo il trigger): {names}",
+  "one edit instruction per pair (name.txt)": "un'istruzione di modifica per coppia (nome.txt)"
 }

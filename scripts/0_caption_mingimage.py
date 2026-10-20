@@ -11,6 +11,10 @@ One .txt per image in Ming-Image's native format: a Figma-style JSON caption.
 La palabra trigger se añade al principio de `canvas_settings.image_style`.
 The trigger word is prepended to `canvas_settings.image_style`.
 
+Modo edit (pares nombre_before + nombre_after): el modelo ve las dos imágenes y escribe en
+nombre.txt UNA instrucción en texto libre, que es lo que recibe la tarea image-edit de Ming
+(no el JSON). Edit mode writes one free-text instruction per pair to name.txt.
+
 Usa el mismo captioner que los demás entrenadores: el text encoder NF4 del repo de
 Qwen-Image 2.1 (Qwen3-VL-8B-Instruct, ~5.5 GB de VRAM). La primera vez se descargan
 solo text_encoder_NF4/ y processor/ (~5 GB) a Captioner-Qwen3-VL-8B/, compartido.
@@ -72,11 +76,26 @@ CAPTION_PROMPT = (
     "completeness."
 )
 
+CAPTION_EDIT_PROMPT = (
+    "The first image is the original and the second image is the edited result. Write ONE "
+    "imperative instruction, in at most 40 words, that turns the first image into the second. "
+    "Start with a verb such as Colorize, Remove, Replace, Change, Add or Make. Say what changes "
+    "and, briefly, what must stay the same. Do not describe content that does not change, do "
+    "not mention 'first image' or 'second image', and write no preamble."
+)
+
+# Una instrucción de 40 palabras son ~60 tokens: el límite del JSON (3072) solo alargaría un bucle.
+EDIT_MAX_NEW_TOKENS = 300
+
 DEFAULTS = {
     "captioner_dir": "Captioner-Qwen3-VL-8B",
     "dataset_path": "./dataset",
     "trigger_word": "",
+    "caption_mode": "normal",
     "caption_prompt": CAPTION_PROMPT,
+    # El mismo que Qwen-Image 2512: la tarea image-edit de Ming recibe la instrucción tal cual.
+    # Debe coincidir con DEFAULT_CAPTION_PROMPTS.edit del HTML.
+    "caption_edit_prompt": CAPTION_EDIT_PROMPT,
     # Un caption de 5 capas ronda 1.200 tokens; el margen evita JSON cortados.
     "max_new_tokens": 3072,
     "temperature": 0.3,
@@ -178,10 +197,12 @@ class StopOnLoop(StoppingCriteria):
         return len(descs) >= 3 and descs.count(descs[-1]) >= 3
 
 
-def generate(model, processor, image, prompt, max_new_tokens, temperature):
-    messages = [{"role": "user", "content": [{"type": "image", "image": image}, {"type": "text", "text": prompt}]}]
+def generate(model, processor, images, prompt, max_new_tokens, temperature):
+    images = images if isinstance(images, list) else [images]
+    messages = [{"role": "user", "content": [{"type": "image", "image": im} for im in images]
+                 + [{"type": "text", "text": prompt}]}]
     text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    inputs = processor(text=[text], images=[image], return_tensors="pt").to("cuda")
+    inputs = processor(text=[text], images=images, return_tensors="pt").to("cuda")
     stop = StoppingCriteriaList([StopOnLoop(processor.tokenizer, inputs["input_ids"].shape[1])])
     with torch.inference_mode():
         out = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=temperature > 0,
@@ -331,6 +352,29 @@ def caption_image(model, processor, image, size, has_alpha, cfg):
     return ming_caption(data, size, cfg["trigger_word"])
 
 
+def edit_instruction(model, processor, images, cfg):
+    """Instrucción de edición: una frase en prosa, sin comillas ni preámbulo, con el trigger delante."""
+    text = generate(model, processor, images, cfg["caption_edit_prompt"],
+                    min(int(cfg["max_new_tokens"]), EDIT_MAX_NEW_TOKENS), float(cfg["temperature"]))
+    text = " ".join(text.split())
+    for prefix in ("Instruction: ", "Sure, ", "Certainly, "):
+        if text.lower().startswith(prefix.lower()):
+            text = text[len(prefix):]
+    text = text.strip().strip('"').strip()
+    trigger = cfg["trigger_word"].strip().rstrip(",")
+    if trigger and not text.lower().startswith(trigger.lower()):
+        text = f"{trigger}, {text}"
+    return text
+
+
+def find_pairs(dataset):
+    """[(nombre, ruta _before, ruta _after)] de los pares completos."""
+    names = sorted(f for f in os.listdir(dataset) if f.lower().endswith(IMAGE_EXTS))
+    stems = {os.path.splitext(n)[0]: n for n in names}
+    return [(stem[:-len("_before")], os.path.join(dataset, name), os.path.join(dataset, stems[stem[:-len("_before")] + "_after"]))
+            for stem, name in stems.items() if stem.endswith("_before") and stem[:-len("_before")] + "_after" in stems]
+
+
 def find_images(dataset):
     """Para un modelo texto→imagen se captiona el objetivo de cada par antes/después: en
     nombre_before + nombre_after, la imagen _before es la ENTRADA de una edición, no el resultado
@@ -346,6 +390,60 @@ def find_images(dataset):
     return names, out
 
 
+def main_edit(cfg, dataset):
+    pairs = find_pairs(dataset)
+    pending = []
+    for name, before, after in pairs:
+        txt = os.path.join(dataset, name + ".txt")
+        if not cfg["overwrite"] and os.path.isfile(txt) and open(txt, encoding="utf-8").read().strip():
+            continue
+        pending.append((name, before, after))
+
+    print(f"  {t('Dataset'):<22}: {os.path.abspath(dataset)}")
+    print(f"  {t('Mode'):<22}: edit")
+    print(f"  {t('Samples'):<22}: {len(pairs)} {t('before/after pairs')}, {t('{n} to caption', n=len(pending))}")
+    print(f"  {t('Style'):<22}: {t('one edit instruction per pair (name.txt)')}")
+    print(f"  {t('Trigger Word'):<22}: {cfg['trigger_word'] or t('(none)')}")
+    print(f"  {t('Overwrite'):<22}: {t('yes') if cfg['overwrite'] else t('only missing')}")
+
+    if not pairs:
+        print("[!] " + t("No pairs found. Name them name_before.ext and name_after.ext."))
+        return 1
+    if not pending:
+        print(t("Nothing to do: every sample already has a caption."))
+        return 0
+
+    model, processor = load_captioner(cfg["captioner_dir"])
+
+    started = time.time()
+    done, failed = 0, []
+    for i, (name, before, after) in enumerate(pending, 1):
+        t0 = time.time()
+        try:
+            # Las dos con el alpha compuesto sobre blanco, como en el modo normal.
+            images = [prepare_image(p, int(cfg["max_image_side"]))[0] for p in (before, after)]
+            caption = edit_instruction(model, processor, images, cfg)
+            if not caption:
+                raise RuntimeError(t("empty caption"))
+            with open(os.path.join(dataset, name + ".txt"), "w", encoding="utf-8") as f:
+                f.write(caption)
+            done += 1
+
+            eta = (time.time() - started) / i * (len(pending) - i)
+            print(f"[{i}/{len(pending)}] {name} | {time.time() - t0:.1f}s | ETA {int(eta // 60)}m{int(eta % 60):02d}s", flush=True)
+            print(f"    {caption[:200]}{'...' if len(caption) > 200 else ''}", flush=True)
+        except Exception as e:
+            failed.append(name)
+            print(f"[{i}/{len(pending)}] {name} {t('FAILED')}: {e}", flush=True)
+
+    total = time.time() - started
+    print("\n✓ " + t("{n} captions in {time} ({per:.1f}s per sample).", n=done, time=f"{int(total // 60)}m{int(total % 60):02d}s", per=total / max(done, 1)))
+    if failed:
+        print("[!] " + t("{n} failed: {names}", n=len(failed), names=', '.join(failed[:10])))
+    print(t("Review them in the Dataset Manager before pre-caching."))
+    return 0 if done else 1
+
+
 def main():
     cfg = load_config()
     dataset = cfg["dataset_path"]
@@ -353,6 +451,9 @@ def main():
     if not os.path.isdir(dataset):
         print("[!] " + t("Dataset folder does not exist: {path}", path=dataset))
         return 1
+
+    if cfg["caption_mode"] == "edit":
+        return main_edit(cfg, dataset)
 
     all_images, images = find_images(dataset)
     pending = []

@@ -9,7 +9,7 @@ Estado: **Fase 6 en curso** (validación y cierre) · Fases 0–5 completadas ·
 | # | Decisión | Valor |
 | :-- | :--- | :--- |
 | 1 | Orden de modelos | **Design (t2i) primero**, **Layer después** |
-| 2 | Tipo de LoRA | **Design = LoRA normal** (es texto→imagen, no edición). **Layer** (después) sería "tipo edit" con pares antes→después (diseño plano → capas) |
+| 2 | Tipo de LoRA | **Design = LoRA normal (texto→imagen) y LoRA de edición** (pares antes→después): su perfil `generation_edit` acepta las tareas `text-to-image` e `image-edit` (corregido en el repaso del 2026-10-20; ver «Edición»). **Layer** (después) sería la descomposición en capas |
 | 3 | Captioner | **El del proyecto, sin tocar nada** (Qwen3-VL-8B compartido) |
 | 4 | Conversor NF4 | Ming-Image es arquitectura **custom** (no nativa de `transformers`/`diffusers`) ⇒ **hay que escribir el conversor** |
 | 5 | Alpha / RGBA | **Resuelto en Fase 0**: el VAE es RGBA (`input_channels: 4`) ⇒ **se entrena con alpha**; las imágenes opacas entran con alpha = 1.0 |
@@ -154,7 +154,25 @@ pre-caché → 30 pasos → preview → stop/resume exacto → export a `models/
 - Ajustes en caliente del trainer: mismas claves que Z-Image menos Turbo (`total_steps`, `save_every`, `lr`, `max_grad_norm`, `preview_*`, `seed`).
 - Traducciones que faltaban (8 cadenas del pre-caché y del captioner) en los 7 idiomas; `Ming-Image_NF4_HF/` en `.gitignore`.
 
+**Edición (image-edit) — HECHA**
+
+Cómo la hace el código oficial (`infer.py` + `modeling_bailingmm2.py` + `diffusion/transformer.py`): el mensaje al MLLM es `[imagen antes, instrucción en texto libre]` (no el JSON), así que el ViT mete el antes en las dos condiciones; el DiT recibe además el latente VAE del antes como `ref_x`, que `patchify_and_embed` concatena al ruido **como segundo fotograma** (`torch.cat([image, image_ref], dim=1)`), y la salida útil es el primero. Bucket oficial: solo 1024; muestreo por defecto el mismo que texto→imagen (12 pasos, CFG 1).
+
+- **Captioner** (`caption_mode: edit`): Qwen3-VL ve antes y después y escribe UNA instrucción (mismo prompt que Qwen-Image 2512) en `nombre.txt`; el JSON de texto→imagen sigue en `nombre_after.txt`, así que un dataset sirve para los dos tipos.
+- **Pre-caché** (`lora_type: edit`): muestra = par; `nombre_latent.pt` (después) y `nombre_ctrl.pt` (antes) con el bucket del después; el MLLM codifica el antes recortado a ese bucket + la instrucción. La extracción declara `text-to-image` porque la validación de `image-edit` pide el tensor de referencia del DiT, que aquí va aparte. Preview manual con su imagen de antes (`_custom_ctrl.pt`), también en caliente en CPU.
+- **Trainer**: `ref_x` = `_ctrl`, salida = primer fotograma; preview con la referencia y a su tamaño (ignora Preview Size); metadato `lora_type: edit`; error si la caché mezcla pares e imágenes sueltas.
+- **Servidor / GUI**: selector LoRA Type, imagen de antes de la preview (Browse / Upload), modo del captioner, y el Dataset Manager enseña el caption del tipo elegido (`nombre.txt` o `nombre_after.txt`); en edición borrar una mitad borra el par.
+
+**Verificado**
+- Condiciones con imagen **idénticas bit a bit** a las del camino oficial completo (`image-edit` + `image_gen_ref_images`): `maxdiff 0.0`; la imagen añade ~580 tokens a `cap_feats_2`.
+- DiT base sin LoRA: el pipeline oficial a 1024 y 512 y el `denoise()` del trainer a 512 editan bien (conservan cara, pelo, ropa y cambian el estilo).
+- Que `ref_x` llega al DiT en eval, en train con gradient checkpointing y a través de PEFT.
+- **Control (blanco y negro, 8 pares alineados, 512, LR 1e-4)**: aprende la edición en 50 pasos y la aplica a una imagen de fuera del dataset sin degradarse a 100 (pérdida 0,16).
+- **TOSTIOK (8 pares de `Dataset_tosti_edit`, 512)**: se degrada (imágenes planas, caras borradas) a LR 4e-4 en 40 pasos y a 1e-4 hacia el paso 100, aunque la mecánica es la misma que en el control. Sospecha: pocos pares, estilización fuerte, pares no alineados píxel a píxel y 512 fuera de la distribución de edición. Pendiente de probar con los 30 pares a 1024.
+- **1024**: 12 s/it y pico de **13,2 GB** de VRAM (RTX 5080, batch 1); a 512, 2,4 s/it.
+
 **Pendiente**
+- Entrenar el TOSTIOK de edición completo (30 pares) a 1024 con LR 1e-4 y ver si la degradación desaparece.
 - Validar en la GUI: Save JSON en caliente (LR / preview / prompt manual) y ver los `[LIVE]` en la consola.
 - Export a `models/loras` y carga fuera del trainer (ComfyUI no tiene el DiT de Ming de serie).
 - `README.md` (tabla + sección) y `docs/README_MingImage.md`.

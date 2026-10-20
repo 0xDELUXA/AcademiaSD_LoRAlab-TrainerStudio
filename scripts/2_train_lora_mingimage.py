@@ -7,6 +7,9 @@ Se entrena solo el DiT (t2i). El MLLM y el connector no se tocan: el texto ya vi
 codificado del Pre-Cache (`_embed` = cap_feats 256x2560, `_embed2` = tokens del VLM
 3840). El LoRA exportado es un LoRA normal de PEFT, sin tocar el text encoder.
 
+Edición (image-edit): si la caché trae `_ctrl` (el latente del antes), el DiT lo recibe como
+`ref_x`, que concatena al ruido como un segundo fotograma; la salida es el primero.
+
 Lee configuración desde train_settings_mingimage.json si existe.
 Reads configuration from train_settings_mingimage.json if present.
 """
@@ -252,19 +255,22 @@ def sample_sigma(batch_size, device):
     return sigma.clamp(1e-4, 1.0 - 1e-4)
 
 
-def predict(model, latents, sigma, embeds, embeds2):
+def predict(model, latents, sigma, embeds, embeds2, ctrl=None):
     """
     Ming recibe listas: un latente [C, 1, H, W] por imagen, un texto [256, 2560] y una
     segunda condición [N, 3840] por imagen (N variable, por eso va como lista: el modelo
     rellena por dentro). El tiempo va al revés que sigma (1 = imagen limpia) y la salida
     es x0 - ruido, el opuesto de la velocidad que usa el scheduler.
+    En edición `ctrl` es el latente del antes (mismo tamaño): va como ref_x, el DiT lo pega
+    como segundo fotograma y devuelve los dos; el que se predice es el primero.
     """
     out = model(x=list(latents.unsqueeze(2).unbind(0)), t=1.0 - sigma,
                 # El cache guarda (1, tokens, dim); el DiT espera cada condición como (tokens, dim).
                 cap_feats=[e.squeeze(0) if e.dim() == 3 else e for e in embeds],
                 cap_feats_2=[e.squeeze(0) if e.dim() == 3 else e for e in embeds2],
+                ref_x=list(ctrl.to(latents.dtype).unsqueeze(2).unbind(0)) if ctrl is not None else None,
                 return_dict=False)[0]
-    return torch.stack(out).squeeze(2)
+    return torch.stack([o[:, 0] for o in out])
 
 
 def build_lora_metadata(step):
@@ -305,6 +311,9 @@ def build_lora_metadata(step):
     if USE_LOKR:
         meta["lokr_factor"] = LOKR_FACTOR
         meta["ss_network_args"] = json.dumps({"algo": "lokr", "factor": LOKR_FACTOR})
+
+    if EDIT_LORA:
+        meta["lora_type"] = "edit"
 
     trigger = TRIGGER_WORD.strip()
     if trigger:
@@ -347,6 +356,10 @@ def _export_lora(model, path, step):
     save_file(clean, path, metadata=build_lora_metadata(step))
 
 
+# Lo decide la caché (si trae _ctrl), no los ajustes: así un LoRA no se entrena con el tipo cambiado.
+EDIT_LORA = False
+
+
 class VaeHolder:
     vae = None
     @classmethod
@@ -356,7 +369,7 @@ class VaeHolder:
         return cls.vae
 
 
-def denoise(model, scheduler, embed, embed2, H, W, generator):
+def denoise(model, scheduler, embed, embed2, H, W, generator, ctrl=None):
     # Mismo muestreo que el pipeline oficial de Ming: sigmas lineales con el shift del scheduler.
     # CFG del pipeline: pred = pos + cfg * (pos - neg) (solo con cfg > 1); el scheduler recibe -pred.
     device = "cuda"
@@ -378,14 +391,16 @@ def denoise(model, scheduler, embed, embed2, H, W, generator):
 
     for t in scheduler.timesteps:
         sigma = (t / 1000).expand(len(texts))
-        out = predict(model, latents.to(torch.bfloat16).expand(len(texts), -1, -1, -1), sigma, texts, texts2).float()
+        # En edición el negativo también ve el antes (el pipeline oficial repite ref_x en el CFG).
+        ref = ctrl.to(device).expand(len(texts), -1, -1, -1) if ctrl is not None else None
+        out = predict(model, latents.to(torch.bfloat16).expand(len(texts), -1, -1, -1), sigma, texts, texts2, ref).float()
         pred = out[:1] + PREVIEW_CFG * (out[:1] - out[1:]) if use_cfg else out
         latents = scheduler.step(-pred, t, latents, return_dict=False)[0]
 
     return latents
 
 
-def run_preview(model, scheduler, embed, embed2, size, step):
+def run_preview(model, scheduler, embed, embed2, size, step, ctrl=None):
     H, W = size
     was_training = model.training
     model.eval()
@@ -396,7 +411,7 @@ def run_preview(model, scheduler, embed, embed2, size, step):
     try:
         with torch.no_grad():
             g = torch.Generator(device="cuda").manual_seed(actual_seed)
-            latents = denoise(model, scheduler, embed, embed2, H, W, g)
+            latents = denoise(model, scheduler, embed, embed2, H, W, g, ctrl)
 
             vae = VaeHolder.get().to("cuda")
             lat = latents.to(vae.dtype) / vae.config.scaling_factor + vae.config.shift_factor
@@ -514,6 +529,7 @@ def is_target(name, module):
 
 def train_mingimage():
     global LORA_RANK, LORA_ALPHA, USE_RSLORA, USE_LORAPLUS, LORAPLUS_RATIO, USE_LOKR, LOKR_FACTOR  # al reanudar se toman del checkpoint (el alpha se exporta con el LoRA)
+    global EDIT_LORA
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.benchmark = True
 
@@ -696,13 +712,28 @@ def train_mingimage():
             "emb": load_tensor(f"{CACHE_DIR}/{nombre}_embed.pt"),
             "emb2": load_tensor(f"{CACHE_DIR}/{nombre}_embed2.pt"),
         }
+        # Edición: el latente del antes, con el mismo bucket que el objetivo.
+        if os.path.exists(f"{CACHE_DIR}/{nombre}_ctrl.pt"):
+            cache_data[nombre]["ctrl"] = load_tensor(f"{CACHE_DIR}/{nombre}_ctrl.pt")
         buckets[tuple(cache_data[nombre]["lat"].shape[2:])].append(nombre)
+
+    EDIT_LORA = any("ctrl" in d for d in cache_data.values())
+    if EDIT_LORA and not all("ctrl" in d for d in cache_data.values()):
+        print("\n[!] ERROR: " + t("The cache mixes edit pairs and single images: run Pre-Cache again."))
+        sys.exit(2)
 
     custom_path = f"{CACHE_DIR}/_custom_embed.pt"
     custom2_path = f"{CACHE_DIR}/_custom_embed2.pt"
+    custom_ctrl_path = f"{CACHE_DIR}/_custom_ctrl.pt"
     has_custom = os.path.exists(custom_path) and os.path.exists(custom2_path)
-    if has_custom:
+
+    def load_custom():
         cache_data["_custom"] = {"emb": load_tensor(custom_path), "emb2": load_tensor(custom2_path)}
+        if EDIT_LORA and os.path.exists(custom_ctrl_path):
+            cache_data["_custom"]["ctrl"] = load_tensor(custom_ctrl_path)
+
+    if has_custom:
+        load_custom()
     check_custom_prompt(has_custom)
     custom_mtime = [os.path.getmtime(custom_path) if has_custom else None]
 
@@ -720,7 +751,8 @@ def train_mingimage():
             return all_preview_names[0]
 
     running_loss, t_step_avg, grad_norm = 0.0, 0.0, 0.0
-    print("\n" + t("STARTING TRAINING! {n} {kind} in {b} buckets.", n=len(all_preview_names), kind=t("images"), b=len(buckets)))
+    kind = t("before/after pairs") if EDIT_LORA else t("images")
+    print("\n" + t("STARTING TRAINING! {n} {kind} in {b} buckets.", n=len(all_preview_names), kind=kind, b=len(buckets)))
 
     reload_live_settings()
     step = start_step
@@ -747,6 +779,7 @@ def train_mingimage():
             latents = torch.cat([cache_data[n]["lat"] for n in names]).to("cuda", non_blocking=True).float()
             embeds = [cache_data[n]["emb"].to("cuda", non_blocking=True) for n in names]
             embeds2 = [cache_data[n]["emb2"].to("cuda", non_blocking=True) for n in names]
+            ctrl = torch.cat([cache_data[n]["ctrl"] for n in names]).to("cuda", non_blocking=True) if EDIT_LORA else None
 
             sigma = sample_sigma(len(names), "cuda")
             noise = torch.randn_like(latents)
@@ -755,7 +788,7 @@ def train_mingimage():
             noisy = ((1 - t_exp) * latents + t_exp * noise).to(torch.bfloat16)
             target = latents - noise
 
-            pred = predict(model, noisy, sigma, embeds, embeds2)
+            pred = predict(model, noisy, sigma, embeds, embeds2, ctrl)
 
             loss = F.mse_loss(pred.float(), target) / GRAD_ACCUM_STEPS
             loss.backward()
@@ -793,18 +826,22 @@ def train_mingimage():
                 if has_custom and os.path.exists(custom_path) and os.path.getmtime(custom_path) != custom_mtime[0]:
                     custom_mtime[0] = os.path.getmtime(custom_path)
                     if os.path.exists(custom2_path):
-                        cache_data["_custom"] = {"emb": load_tensor(custom_path), "emb2": load_tensor(custom2_path)}
+                        load_custom()
                         check_custom_prompt(True)
                 p_name = get_preview_sample(step)
-                # El prompt manual no tiene imagen: la preview usa el tamaño de la primera del dataset.
-                ref = cache_data[p_name if p_name != "_custom" else all_preview_names[0]]["lat"]
+                sample = cache_data[p_name]
+                # En edición la salida hereda el tamaño del antes (como en el pipeline oficial): el prompt
+                # manual usa su propio antes o, si no lo hay, el del primer par.
+                ctrl = sample.get("ctrl", cache_data[all_preview_names[0]].get("ctrl")) if EDIT_LORA else None
+                # El prompt manual sin imagen usa el tamaño de la primera del dataset.
+                ref = ctrl if ctrl is not None else cache_data[p_name if p_name != "_custom" else all_preview_names[0]]["lat"]
                 print(f"\n  [Preview] {t('Mode')}: {PREVIEW_CAPTION_MODE} | {t('Sample')}: {p_name}")
                 H, W = ref.shape[2], ref.shape[3]
-                if PREVIEW_SIZE > 0:
+                if PREVIEW_SIZE > 0 and ctrl is None:
                     # Latente 8x y parches 2x2: lados múltiplos de 2 en el latente (16 px).
                     s = PREVIEW_SIZE / 8 / math.sqrt(H * W)
                     H, W = max(2, round(H * s / 2) * 2), max(2, round(W * s / 2) * 2)
-                run_preview(model, scheduler, cache_data[p_name]["emb"], cache_data[p_name]["emb2"], (H, W), step)
+                run_preview(model, scheduler, sample["emb"], sample["emb2"], (H, W), step, ctrl)
 
     except (KeyboardInterrupt, SystemExit):
         save_checkpoint_now(last_step_executed)
