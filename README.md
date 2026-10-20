@@ -1,4 +1,4 @@
-# AcademiaSD LoRAlab Trainer Studio
+# AcademiaSD LoRAlab Trainer Studio 2.01
 
 <p align="center">
   <img src="assets/launcher_LoRAlab.jpg" alt="AcademiaSD LoRAlab Trainer Studio" width="900">
