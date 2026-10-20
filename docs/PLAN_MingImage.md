@@ -173,6 +173,8 @@ Cómo la hace el código oficial (`infer.py` + `modeling_bailingmm2.py` + `diffu
 
 **Pendiente**
 - Entrenar el TOSTIOK de edición completo (30 pares) a 1024 con LR 1e-4 y ver si la degradación desaparece.
+- Avisos del código vendorizado (2026-10-20): `torch.cuda.amp.autocast` → `torch.amp.autocast("cuda")`, `use_return_dict` → `return_dict` y `torch_dtype` → `dtype` en el connector, todos equivalentes: recodificando 3 pares de una caché de edición hecha con el código anterior, embeddings **idénticos bit a bit** (`maxdiff 0.0`) y la pre-caché ya no muestra ningún aviso.
+- El LLM usa la API antigua de máscaras (`transformers.modeling_attn_mask_utils`); su aviso solo se silencia en la pre-caché. Si una versión de transformers la quita, la pre-caché fallará al arrancar: habrá que migrar a `masking_utils`.
 - Validar en la GUI: Save JSON en caliente (LR / preview / prompt manual) y ver los `[LIVE]` en la consola.
 - Export a `models/loras` y carga fuera del trainer (ComfyUI no tiene el DiT de Ming de serie).
 - `README.md` (tabla + sección) y `docs/README_MingImage.md`.

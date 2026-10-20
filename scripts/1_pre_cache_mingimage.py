@@ -34,6 +34,9 @@ except Exception:
 
 # NF4: las capas cuya dimensión no es múltiplo de 64 usan el kernel general; solo cambia la velocidad.
 warnings.filterwarnings("ignore", message=".*is not aligned for fast kernel.*")
+# El LLM del código oficial usa la API antigua de máscaras de transformers (modeling_attn_mask_utils).
+# Migrarla a masking_utils es reescribir su máscara de atención: de momento solo se calla el aviso.
+warnings.filterwarnings("ignore", message=".*attention mask API under `transformers.modeling_attn_mask_utils`.*")
 
 # El código oficial (MIT) vive en mingimage_vendor/ porque la arquitectura no está en diffusers.
 VENDOR_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mingimage_vendor")
