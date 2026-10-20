@@ -35,6 +35,7 @@ from flask import Flask, abort, jsonify, request, send_from_directory
 
 import gpu_stats
 import i18n
+import project_layout
 import remote_access
 from i18n import t
 
@@ -43,6 +44,15 @@ GUI_DIR = BASE_DIR / "GUI"
 CODE_DIR = BASE_DIR / "code"
 SCRIPTS_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = GUI_DIR / "launcher.json"
+
+_layout_result = project_layout.ensure_layout(BASE_DIR)
+for _layout_item in _layout_result["moves"]:
+    print("[layout] {} -> {}".format(_layout_item["old"], _layout_item["new"]))
+for _layout_item in _layout_result["collisions"]:
+    print("[layout] {}: {} -> {}".format(_layout_item["status"], _layout_item["old"], _layout_item["new"]))
+if _layout_result["moves"]:
+    print("[layout] moved {} folders, rewrote {} files".format(
+        len(_layout_result["moves"]), len(_layout_result["rewrites"])))
 
 app = Flask(__name__)
 logging.getLogger("werkzeug").setLevel(logging.ERROR)

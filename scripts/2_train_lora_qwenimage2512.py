@@ -25,6 +25,7 @@ from safetensors import safe_open
 from safetensors.torch import save_file, load
 from bitsandbytes.nn import Linear4bit
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 import qwen_image2512_model as qm
 
@@ -40,10 +41,10 @@ except Exception:
 HF_REPO_ID = "AcademiaSD/Qwen-Image-2512-NF4-for-LoRA-Training"
 
 DEFAULTS = {
-    "model_id": "Qwen-Image-2512-NF4",
+    "model_id": "Models/Qwen-Image-2512-NF4",
     "base_model": "2512",
-    "cache_dir": "./cached_data_qwenimage2512",
-    "output_dir": "./qwenimage2512_lora_output",
+    "cache_dir": "./Cache_Data/cached_data_qwenimage2512",
+    "output_dir": "./Outputs/qwenimage2512_lora_output",
     "total_steps": 500,
     "batch_size": 1,
     "grad_accum_steps": 4,
@@ -85,7 +86,7 @@ else:
     cfg = {}
     print("[!] " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID          = cfg.get("model_id",          DEFAULTS["model_id"])
+MODEL_ID          = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 # "2512" (texto a imagen) o "edit2511" (edición). Un LoRA de edición necesita Edit-2511.
 BASE_MODEL        = "edit2511" if cfg.get("base_model", DEFAULTS["base_model"]) == "edit2511" else "2512"
 TOTAL_STEPS       = cfg.get("total_steps",       DEFAULTS["total_steps"])
@@ -124,12 +125,8 @@ TURBO_LORA_STRENGTH = cfg.get("turbo_lora_strength", DEFAULTS["turbo_lora_streng
 TRIGGER_WORD      = cfg.get("trigger_word", "")
 PROJECT_NAME      = cfg.get("project_name", "").strip()
 
-if PROJECT_NAME:
-    CACHE_DIR  = f"./cached_data_qwenimage2512_{PROJECT_NAME}"
-    OUTPUT_DIR = f"./qwenimage2512_lora_output_{PROJECT_NAME}"
-else:
-    CACHE_DIR  = cfg.get("cache_dir",  DEFAULTS["cache_dir"])
-    OUTPUT_DIR = cfg.get("output_dir", DEFAULTS["output_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_qwenimage2512_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./qwenimage2512_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("output_dir"), DEFAULTS["output_dir"]))
 
 TRANSFORMER_DIR = os.path.join(MODEL_ID, qm.TRANSFORMER_FOLDERS["edit" if BASE_MODEL == "edit2511" else "t2i"])
 MODEL_LABEL = "Qwen-Image-Edit-2511" if BASE_MODEL == "edit2511" else "Qwen-Image-2512"

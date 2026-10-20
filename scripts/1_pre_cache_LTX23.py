@@ -40,6 +40,7 @@ import torchvision.transforms.functional as F_vision
 from PIL import Image
 from diffusers import DiffusionPipeline
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir
 
 
 # ============================================================================
@@ -99,9 +100,9 @@ SYSTEM_RAM_GB = _detect_system_ram_gb()
 # CONFIG
 # ============================================================================
 DEFAULTS = {
-    "model_id": "./LTX23-NF4",
+    "model_id": "Models/LTX23-NF4",
     "dataset_path": "./dataset",
-    "cache_dir": "./cached_data_ltx23",
+    "cache_dir": "./Cache_Data/cached_data_ltx23",
     "target_area": 512 * 512,
     "max_side": 1280,
     "multiple": 32,
@@ -183,7 +184,7 @@ def _cfg_bool(key, default):
     return bool(value)
 
 
-MODEL_ID = str(cfg_get("model_id", DEFAULTS["model_id"])).strip()
+MODEL_ID = str(resolve_model_dir(cfg_get("model_id", DEFAULTS["model_id"]), DEFAULTS["model_id"]))
 DATASET_PATH = str(cfg_get("dataset_path", DEFAULTS["dataset_path"])).strip()
 TARGET_AREA = int(cfg_get("target_area", DEFAULTS["target_area"]))
 MAX_SIDE = int(cfg_get("max_side", DEFAULTS["max_side"]))
@@ -219,10 +220,7 @@ LOW_RAM_MODE = bool(
     and SYSTEM_RAM_GB <= LOW_RAM_THRESHOLD_GB
 )
 
-if PROJECT_NAME:
-    CACHE_DIR = f"./cached_data_ltx23_{PROJECT_NAME}"
-else:
-    CACHE_DIR = str(cfg_get("cache_dir", DEFAULTS["cache_dir"])).strip()
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_ltx23_{PROJECT_NAME}" if PROJECT_NAME else cfg_get("cache_dir"), DEFAULTS["cache_dir"]))
 
 # LTX-2.3 exige dimensiones divisibles por 32.
 MULTIPLE = max(32, MULTIPLE)
@@ -269,10 +267,10 @@ def get_hf_token():
 
 
 def ensure_ltx23_model_downloaded(local_path):
-    local_path = str(local_path or "./LTX23-NF4").strip()
+    local_path = str(local_path or "./Models/LTX23-NF4").strip()
 
     if not local_path:
-        local_path = "./LTX23-NF4"
+        local_path = "./Models/LTX23-NF4"
 
     has_base = os.path.exists(os.path.join(local_path, "model_index.json"))
     has_nf4 = os.path.exists(os.path.join(local_path, "index.json"))

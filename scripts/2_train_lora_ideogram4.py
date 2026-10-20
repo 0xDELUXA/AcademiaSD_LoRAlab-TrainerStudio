@@ -30,6 +30,7 @@ from peft import LoraConfig, get_peft_model, get_peft_model_state_dict, set_peft
 from safetensors import safe_open
 from safetensors.torch import save_file, load
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 
 # La GUI busca "<Paso> N/Total" en la consola para saber por qué paso va.
@@ -46,9 +47,9 @@ except Exception:
 HF_REPO_ID = "unsloth/ideogram-4-nf4-diffusers"
 
 DEFAULTS = {
-    "model_id": "Ideogram4-NF4",
-    "cache_dir": "./cached_data_ideogram4",
-    "output_dir": "./ideogram4_lora_output",
+    "model_id": "Models/Ideogram4-NF4",
+    "cache_dir": "./Cache_Data/cached_data_ideogram4",
+    "output_dir": "./Outputs/ideogram4_lora_output",
     "total_steps": 1000,
     "batch_size": 1,
     "grad_accum_steps": 4,
@@ -90,7 +91,7 @@ else:
     cfg = {}
     print("[!] " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID          = cfg.get("model_id",          DEFAULTS["model_id"])
+MODEL_ID          = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 TOTAL_STEPS       = cfg.get("total_steps",       DEFAULTS["total_steps"])
 BATCH_SIZE        = cfg.get("batch_size",        DEFAULTS["batch_size"])
 GRAD_ACCUM_STEPS  = cfg.get("grad_accum_steps",  DEFAULTS["grad_accum_steps"])
@@ -129,12 +130,8 @@ PREVIEW_CUSTOM_PROMPT = cfg.get("preview_custom_prompt", DEFAULTS["preview_custo
 TRIGGER_WORD      = cfg.get("trigger_word", "")
 PROJECT_NAME      = cfg.get("project_name", "").strip()
 
-if PROJECT_NAME:
-    CACHE_DIR  = f"./cached_data_ideogram4_{PROJECT_NAME}"
-    OUTPUT_DIR = f"./ideogram4_lora_output_{PROJECT_NAME}"
-else:
-    CACHE_DIR  = cfg.get("cache_dir",  DEFAULTS["cache_dir"])
-    OUTPUT_DIR = cfg.get("output_dir", DEFAULTS["output_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_ideogram4_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./ideogram4_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("output_dir"), DEFAULTS["output_dir"]))
 
 print(f"  {t('Model ID'):<22}: {MODEL_ID}")
 print(f"  {t('Project Name'):<22}: {PROJECT_NAME if PROJECT_NAME else t('(Default)')}")

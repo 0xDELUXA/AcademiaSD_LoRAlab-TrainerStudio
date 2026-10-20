@@ -17,6 +17,7 @@ from diffusers import AutoencoderKL, StableDiffusionXLPipeline
 import logging
 import sys
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -24,7 +25,7 @@ try:
 except Exception:
     pass
 
-MODELS_DIR = "SDXL-Models"
+MODELS_DIR = str(resolve_model_dir("SDXL-Models", "SDXL-Models"))
 
 # Modelos con los que se entrena: se descargan la primera vez. prefix y negative son para las
 # previews (los prefijos de calidad de cada familia); el LoRA se entrena con los captions tal cual.
@@ -66,7 +67,7 @@ DEFAULTS = {
     "model_preset": "sdxl_base",
     "custom_checkpoint": "",
     "dataset_path": "./dataset",
-    "cache_dir": "./cached_data_sdxl",
+    "cache_dir": "./Cache_Data/cached_data_sdxl",
     "target_area": 1024 * 1024,
     "max_side": 2048,
     "multiple": 64,
@@ -99,10 +100,7 @@ PREVIEW_CUSTOM_PROMPT = cfg.get("preview_custom_prompt", "").strip()
 # Prefijo de calidad del preset (score_9... en Pony) delante de los captions y del prompt de preview.
 QUALITY_PREFIX = bool(cfg.get("quality_prefix", DEFAULTS["quality_prefix"]))
 
-if PROJECT_NAME:
-    CACHE_DIR = f"./cached_data_sdxl_{PROJECT_NAME}"
-else:
-    CACHE_DIR = cfg.get("cache_dir", DEFAULTS["cache_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_sdxl_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
 
 # VAE 8x y tres bajadas de resolución en la UNet: lados múltiplos de 64 px.
 if MULTIPLE not in (64, 128):

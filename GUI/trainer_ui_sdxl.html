@@ -336,11 +336,11 @@
 
                     <div class="form-group">
                         <label>Cache Folder (Auto):</label>
-                        <input type="text" id="precache_cache_dir" value="./cached_data_sdxl" readonly title="Path generated automatically, for information">
+                        <input type="text" id="precache_cache_dir" value="./Cache_Data/cached_data_sdxl" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-group">
-                        <label title="The model the LoRA is trained on. Presets are downloaded the first time (~7 GB each) into SDXL-Models/. Custom: any SDXL checkpoint in one .safetensors file (Juggernaut, RealVis, WAI...). The LoRA works best on the model it was trained on and on its derivatives.">Base Model:</label>
+                        <label title="The model the LoRA is trained on. Presets are downloaded the first time (~7 GB each) into Models/SDXL-Models/. Custom: any SDXL checkpoint in one .safetensors file (Juggernaut, RealVis, WAI...). The LoRA works best on the model it was trained on and on its derivatives.">Base Model:</label>
                         <select id="model_preset" onchange="toggleCustomCheckpoint(this.value)">
                             <option value="sdxl_base" selected>SDXL Base 1.0 (realistic, general)</option>
                             <option value="juggernaut_xi">Juggernaut XI v11 (photorealistic)</option>
@@ -461,7 +461,7 @@
                 <div class="panel-body">
                     <div class="form-group">
                         <label>Output Dir (Auto):</label>
-                        <input type="text" id="train_output_dir" value="./sdxl_lora_output" readonly title="Path generated automatically, for information">
+                        <input type="text" id="train_output_dir" value="./Outputs/sdxl_lora_output" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-row">
@@ -875,8 +875,8 @@
 
         function updateProjectPaths() {
             const proj = document.getElementById('project_name').value.trim();
-            const cacheDir = proj ? `./cached_data_sdxl_${proj}` : './cached_data_sdxl';
-            const outputDir = proj ? `./sdxl_lora_output_${proj}` : './sdxl_lora_output';
+            const cacheDir = proj ? `./Cache_Data/cached_data_sdxl_${proj}` : './Cache_Data/cached_data_sdxl';
+            const outputDir = proj ? `./Outputs/sdxl_lora_output_${proj}` : './Outputs/sdxl_lora_output';
             
             document.getElementById('precache_cache_dir').value = cacheDir;
             document.getElementById('train_output_dir').value = outputDir;

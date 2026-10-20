@@ -29,6 +29,7 @@ from safetensors.torch import save_file, load, load_file
 from bitsandbytes.functional import QuantState
 from bitsandbytes.nn import Linear4bit, Params4bit
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 
 # La GUI busca "<Paso> N/Total" en la consola para saber por qué paso va.
@@ -43,9 +44,9 @@ except Exception:
 HF_REPO_ID = "AcademiaSD/Qwen-Image-2.1-NF4-for-LoRA-Training"
 
 DEFAULTS = {
-    "model_id": "Qwen-Image21-NF4",
-    "cache_dir": "./cached_data_qwen_image21",
-    "output_dir": "./qwen_image21_lora_output",
+    "model_id": "Models/Qwen-Image21-NF4",
+    "cache_dir": "./Cache_Data/cached_data_qwen_image21",
+    "output_dir": "./Outputs/qwen_image21_lora_output",
     "total_steps": 500,
     "batch_size": 1,
     "grad_accum_steps": 4,
@@ -88,7 +89,7 @@ else:
     cfg = {}
     print("[!] " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID          = cfg.get("model_id",          DEFAULTS["model_id"])
+MODEL_ID          = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 TOTAL_STEPS       = cfg.get("total_steps",       DEFAULTS["total_steps"])
 BATCH_SIZE        = cfg.get("batch_size",        DEFAULTS["batch_size"])
 GRAD_ACCUM_STEPS  = cfg.get("grad_accum_steps",  DEFAULTS["grad_accum_steps"])
@@ -129,12 +130,8 @@ TURBO_LORA_PATH     = os.path.join(MODEL_ID, "LoRAs", "Qwen-Image-2.1-viggle-tur
 TRIGGER_WORD      = cfg.get("trigger_word", "")
 PROJECT_NAME      = cfg.get("project_name", "").strip()
 
-if PROJECT_NAME:
-    CACHE_DIR  = f"./cached_data_qwen_image21_{PROJECT_NAME}"
-    OUTPUT_DIR = f"./qwen_image21_lora_output_{PROJECT_NAME}"
-else:
-    CACHE_DIR  = cfg.get("cache_dir",  DEFAULTS["cache_dir"])
-    OUTPUT_DIR = cfg.get("output_dir", DEFAULTS["output_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_qwen_image21_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./qwen_image21_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("output_dir"), DEFAULTS["output_dir"]))
 
 print(f"  {t('Model ID'):<22}: {MODEL_ID}")
 print(f"  {t('Project Name'):<22}: {PROJECT_NAME if PROJECT_NAME else t('(Default)')}")

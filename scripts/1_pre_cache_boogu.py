@@ -14,6 +14,7 @@ from boogu_model import (
     NF4_DIR, NF4_TEXT_ENCODER, NF4_TRANSFORMER, ensure_nf4_model,
     quiet, register_nf4_models,
 )
+from project_layout import resolve_cache_dir
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 CONFIG = BASE_DIR / "settings" / "pre_cache_settings_boogu.json"
@@ -104,7 +105,7 @@ def _fit_target(image, target_area, max_side, multiple):
 def _load_cache_settings():
     config = json.loads(CONFIG.read_text(encoding="utf-8-sig")) if CONFIG.exists() else {}
     dataset = resolve_path(config.get("dataset_path", "./dataset"), BASE_DIR)
-    cache = resolve_path(config.get("cache_dir", "./cached_data_boogu"), BASE_DIR)
+    cache = resolve_cache_dir(config.get("cache_dir"), "./Cache_Data/cached_data_boogu", BASE_DIR)
     mode = str(config.get("lora_type", "edit")).lower()
     if mode not in ("normal", "edit"):
         raise ValueError("lora_type debe ser 'normal' o 'edit'.")

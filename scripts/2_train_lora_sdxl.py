@@ -30,6 +30,7 @@ from peft import LoraConfig, get_peft_model, get_peft_model_state_dict, set_peft
 from safetensors import safe_open
 from safetensors.torch import save_file, load
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 
 # La GUI busca "<Paso> N/Total" en la consola para saber por qué paso va.
@@ -41,9 +42,11 @@ try:
 except Exception:
     pass
 
+MODELS_DIR = str(resolve_model_dir("SDXL-Models", "SDXL-Models"))
+
 DEFAULTS = {
-    "cache_dir": "./cached_data_sdxl",
-    "output_dir": "./sdxl_lora_output",
+    "cache_dir": "./Cache_Data/cached_data_sdxl",
+    "output_dir": "./Outputs/sdxl_lora_output",
     "total_steps": 1500,
     "batch_size": 1,
     "grad_accum_steps": 4,
@@ -126,12 +129,8 @@ PREVIEW_CUSTOM_PROMPT = cfg.get("preview_custom_prompt", DEFAULTS["preview_custo
 TRIGGER_WORD      = cfg.get("trigger_word", "")
 PROJECT_NAME      = cfg.get("project_name", "").strip()
 
-if PROJECT_NAME:
-    CACHE_DIR  = f"./cached_data_sdxl_{PROJECT_NAME}"
-    OUTPUT_DIR = f"./sdxl_lora_output_{PROJECT_NAME}"
-else:
-    CACHE_DIR  = cfg.get("cache_dir",  DEFAULTS["cache_dir"])
-    OUTPUT_DIR = cfg.get("output_dir", DEFAULTS["output_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_sdxl_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./sdxl_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("output_dir"), DEFAULTS["output_dir"]))
 
 MODEL_FILE = os.path.join(CACHE_DIR, "_model.json")
 MODEL = json.load(open(MODEL_FILE, encoding="utf-8")) if os.path.exists(MODEL_FILE) else None
@@ -403,14 +402,14 @@ def load_unet():
     BF16. Las convoluciones no tienen versión NF4 y se quedan en BF16.
 
     Leer el checkpoint de un solo archivo carga en RAM el archivo entero y la UNet convertida (~10 GB).
-    La primera vez se guarda la UNet ya convertida en SDXL-Models/unet_cache/ (~5 GB en disco); desde
+    La primera vez se guarda la UNet ya convertida en Models/SDXL-Models/unet_cache/ (~5 GB en disco); desde
     entonces se carga por mmap y apenas ocupa RAM.
     """
     ckpt = MODEL["checkpoint"]
     stem = os.path.splitext(os.path.basename(ckpt))[0]
-    cached = os.path.join("SDXL-Models", "unet_cache", f"{stem}_{os.path.getsize(ckpt)}")
+    cached = os.path.join(MODELS_DIR, "unet_cache", f"{stem}_{os.path.getsize(ckpt)}")
     if not os.path.isfile(os.path.join(cached, "config.json")):
-        print("  " + t("Converting the UNet once (SDXL-Models/unet_cache)..."))
+        print("  " + t("Converting the UNet once (Models/SDXL-Models/unet_cache)..."))
         unet = UNet2DConditionModel.from_single_file(ckpt, torch_dtype=torch.bfloat16)
         unet.save_pretrained(cached)
         del unet

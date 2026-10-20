@@ -344,7 +344,7 @@
 
                     <div class="form-group">
                         <label>Cache Folder (Auto):</label>
-                        <input type="text" id="precache_cache_dir" value="./cached_data_qwenimage2512" readonly title="Path generated automatically, for information">
+                        <input type="text" id="precache_cache_dir" value="./Cache_Data/cached_data_qwenimage2512" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-group">
@@ -458,7 +458,7 @@
                 <div class="panel-body">
                     <div class="form-group">
                         <label>Output Dir (Auto):</label>
-                        <input type="text" id="train_output_dir" value="./qwenimage2512_lora_output" readonly title="Path generated automatically, for information">
+                        <input type="text" id="train_output_dir" value="./Outputs/qwenimage2512_lora_output" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-row">
@@ -614,7 +614,7 @@
                             <input type="number" step="0.05" id="train_turbo_strength" value="1.0" style="padding:3px 8px; font-size:0.8rem; width:80px;">
                         </div>
                         <span class="no-i18n" style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-top: 4px;">
-                            Qwen-Image-2512-NF4/LoRAs/&lt;Base Model&gt;-Lightning-4steps-V1.0-bf16.safetensors (lightx2v)
+                            Models/Qwen-Image-2512-NF4/LoRAs/&lt;Base Model&gt;-Lightning-4steps-V1.0-bf16.safetensors (lightx2v)
                         </span>
                     </div>
 
@@ -915,8 +915,8 @@
 
         function updateProjectPaths() {
             const proj = document.getElementById('project_name').value.trim();
-            const cacheDir = proj ? `./cached_data_qwenimage2512_${proj}` : './cached_data_qwenimage2512';
-            const outputDir = proj ? `./qwenimage2512_lora_output_${proj}` : './qwenimage2512_lora_output';
+            const cacheDir = proj ? `./Cache_Data/cached_data_qwenimage2512_${proj}` : './Cache_Data/cached_data_qwenimage2512';
+            const outputDir = proj ? `./Outputs/qwenimage2512_lora_output_${proj}` : './Outputs/qwenimage2512_lora_output';
             
             document.getElementById('precache_cache_dir').value = cacheDir;
             document.getElementById('train_output_dir').value = outputDir;

@@ -34,6 +34,10 @@ Qwen-Image-2512-NF4/
 Boogu-image-edit-Raw/
 Boogu-image-edit-NF4/
 
+/Models/
+/Outputs/
+/Cache_Data/
+
 # Ejecuciones / Runs
 cached_data_*/
 *_lora_output*/

@@ -9,7 +9,7 @@ One .txt per image with a description. The trigger word always goes first.
 Usa el mismo captioner que LTX-2.3, Z-Image y Qwen-Image 2.1: el text encoder NF4 del repo de
 Qwen-Image 2.1 (Qwen3-VL-8B-Instruct, ~5.5 GB de VRAM). El text encoder de Anima (Qwen3-0.6B)
 solo lee texto. La primera vez se descargan solo text_encoder_NF4/ y processor/ (~5 GB) a
-Captioner-Qwen3-VL-8B/, compartido con LTX-2.3 y Z-Image. La GUI ofrece además un prompt de
+Models/Captioner-Qwen3-VL-8B/, compartido con LTX-2.3 y Z-Image. La GUI ofrece además un prompt de
 etiquetas estilo Danbooru, con las que se entrenó Anima.
 
 Lee caption_settings_anima.json; la ruta del dataset y el trigger salen de
@@ -26,6 +26,7 @@ from PIL import Image
 from huggingface_hub import snapshot_download
 from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 from i18n import t
+from project_layout import resolve_model_dir
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -37,7 +38,7 @@ except Exception:
 warnings.filterwarnings("ignore", message=".*is not aligned for fast kernel.*")
 
 DEFAULTS = {
-    "captioner_dir": "Captioner-Qwen3-VL-8B",
+    "captioner_dir": "Models/Captioner-Qwen3-VL-8B",
     "dataset_path": "./dataset",
     "trigger_word": "",
     "caption_prompt": (
@@ -83,6 +84,7 @@ def load_config():
 
 
 def load_captioner(captioner_dir):
+    captioner_dir = str(resolve_model_dir(captioner_dir, "Models/Captioner-Qwen3-VL-8B"))
     path = os.path.join(captioner_dir, "text_encoder_NF4")
     if not os.path.exists(os.path.join(path, "config.json")):
         print(t("Downloading the captioner from Hugging Face: {repo} (~5 GB)", repo=HF_REPO_ID), flush=True)

@@ -103,7 +103,7 @@ This trainer takes **images, video clips, or both in the same folder**. Images t
 ### System
 - **📊 Real-time telemetry** — RAM, VRAM and GPU temperature with colour coding.
 - **🔑 Hugging Face token support** — optional, stored in `settings\HF_token.json`, for faster downloads with live progress.
-- **📂 Automatic project folders** — `./cached_data_minimaxh3_<project>` and `./minimaxh3_lora_output_<project>`.
+- **📂 Automatic project folders** — `./Cache_Data/cached_data_minimaxh3_<project>` and `./Outputs/minimaxh3_lora_output_<project>`.
 - **🚀 One-click export** — send the finished `.safetensors` to your ComfyUI / Forge / A1111 `models/loras` folder.
 - **🌐 Fully bilingual (English / Español)** — every message is `English / Español` on the same line, English first.
 
@@ -248,7 +248,7 @@ Use the **Dataset Manager** to review everything: caption badges, a lightbox to 
 
 **No captions yet?** Press **Create Captions**. It writes one `.txt` per image with the trigger word first, and turns into **Redo Captions** once they exist (asking before it overwrites anything).
 
-The first run downloads **Qwen3-VL-4B-Instruct** (~8 GB) into `./Qwen3-VL-4B-Instruct`; later runs reuse it. It loads in 4-bit — **4.2 GB of VRAM measured** — and takes about **6 seconds per image** on an RTX 5080. It fits on any card from 6 GB up.
+The first run downloads **Qwen3-VL-4B-Instruct** (~8 GB) into `Models/Qwen3-VL-4B-Instruct`; later runs reuse it. It loads in 4-bit — **4.2 GB of VRAM measured** — and takes about **6 seconds per image** on an RTX 5080. It fits on any card from 6 GB up.
 
 Two details worth knowing:
 

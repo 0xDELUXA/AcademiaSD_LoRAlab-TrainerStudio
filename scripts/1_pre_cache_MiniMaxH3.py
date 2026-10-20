@@ -51,6 +51,7 @@ import torchvision.transforms.functional as F_vision
 from PIL import Image
 from safetensors import safe_open
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir
 
 # ============================================================================
 # LOGS (en el idioma de la interfaz / in the interface language)
@@ -488,10 +489,10 @@ def load_h3_video_vae(nf4_model_id, original_model_id, strict=True):
 # CONFIG
 # ============================================================================
 DEFAULTS = {
-    "model_id": "./MiniMax-H3",
-    "nf4_model_id": "./MiniMax-H3-NF4",
+    "model_id": "Models/MiniMax-H3",
+    "nf4_model_id": "Models/MiniMax-H3-NF4",
     "dataset_path": "./dataset",
-    "cache_dir": "./cached_data_minimaxh3_v3",
+    "cache_dir": "./Cache_Data/cached_data_minimaxh3",
     "target_area": 576 * 576,
     "max_side": 1024,
     "multiple": 32,
@@ -596,8 +597,8 @@ def _parse_logs_dev(value):
     return 1
 
 
-MODEL_ID = str(cfg_get("model_id", DEFAULTS["model_id"])).strip()
-NF4_MODEL_ID = str(cfg_get("nf4_model_id", DEFAULTS["nf4_model_id"])).strip()
+MODEL_ID = str(resolve_model_dir(cfg_get("model_id", DEFAULTS["model_id"]), DEFAULTS["model_id"]))
+NF4_MODEL_ID = str(resolve_model_dir(cfg_get("nf4_model_id", DEFAULTS["nf4_model_id"]), DEFAULTS["nf4_model_id"]))
 DATASET_PATH = str(cfg_get("dataset_path", DEFAULTS["dataset_path"])).strip()
 TARGET_AREA = int(cfg_get("target_area", DEFAULTS["target_area"]))
 MAX_SIDE = int(cfg_get("max_side", DEFAULTS["max_side"]))
@@ -641,10 +642,7 @@ LOW_RAM_MODE = bool(
     and SYSTEM_RAM_GB <= LOW_RAM_THRESHOLD_GB
 )
 
-if PROJECT_NAME:
-    CACHE_DIR = "./cached_data_minimaxh3_{}".format(PROJECT_NAME)
-else:
-    CACHE_DIR = str(cfg_get("cache_dir", DEFAULTS["cache_dir"])).strip()
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_minimaxh3_{PROJECT_NAME}" if PROJECT_NAME else cfg_get("cache_dir"), DEFAULTS["cache_dir"]))
 
 # The cache path is used EXACTLY as configured - no automatic suffix.
 # La ruta de cache se usa EXACTAMENTE como esta configurada - sin sufijo automatico.

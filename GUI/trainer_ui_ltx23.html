@@ -336,7 +336,7 @@
 
                     <div class="form-group">
                         <label>Cache Folder (Auto):</label>
-                        <input type="text" id="precache_cache_dir" value="./cached_data_LTX23" readonly title="Path generated automatically, for information">
+                        <input type="text" id="precache_cache_dir" value="./Cache_Data/cached_data_ltx23" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-group">
@@ -448,7 +448,7 @@
                 <div class="panel-body">
                     <div class="form-group">
                         <label>Output Dir (Auto):</label>
-                        <input type="text" id="train_output_dir" value="./LTX23_lora_output" readonly title="Path generated automatically, for information">
+                        <input type="text" id="train_output_dir" value="./Outputs/ltx23_lora_output" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-row">
@@ -580,7 +580,7 @@
                             <input type="number" step="0.05" id="train_turbo_strength" value="1.0" style="padding:3px 8px; font-size:0.8rem; width:80px;">
                         </div>
                         <span style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-top: 4px;">
-                            HuggingFace: LTX23-NF4/LoRAs/LTX23_turbo_lora_rank_64_bf16.safetensors
+                            HuggingFace: Models/LTX23-NF4/LoRAs/LTX23_turbo_lora_rank_64_bf16.safetensors
                         </span>
                     </div>
 
@@ -855,8 +855,8 @@
 
         function updateProjectPaths() {
             const proj = document.getElementById('project_name').value.trim();
-            const cacheDir = proj ? `./cached_data_LTX23_${proj}` : './cached_data_LTX23';
-            const outputDir = proj ? `./LTX23_lora_output_${proj}` : './LTX23_lora_output';
+            const cacheDir = proj ? `./Cache_Data/cached_data_ltx23_${proj}` : './Cache_Data/cached_data_ltx23';
+            const outputDir = proj ? `./Outputs/ltx23_lora_output_${proj}` : './Outputs/ltx23_lora_output';
             
             document.getElementById('precache_cache_dir').value = cacheDir;
             document.getElementById('train_output_dir').value = outputDir;

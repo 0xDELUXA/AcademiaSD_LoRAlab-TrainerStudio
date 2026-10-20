@@ -34,6 +34,7 @@ from safetensors.torch import save_file, load, load_file
 from bitsandbytes.functional import QuantState
 from bitsandbytes.nn import Linear4bit, Params4bit
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 from moss_image_model import MOSSImageTransformer
 
@@ -69,10 +70,10 @@ TURBO_REVISION = "1ec327b9fac5a0aa47426aaba6565892616ce30e"
 TURBO_FILES = ("lora.safetensors", "time_embedding.safetensors", "dataspace.safetensors")
 
 DEFAULTS = {
-    "model_id": "MOSS-Image-NF4",
+    "model_id": "Models/MOSS-Image-NF4",
     "base_model": "base",
-    "cache_dir": "./cached_data_mossimage",
-    "output_dir": "./mossimage_lora_output",
+    "cache_dir": "./Cache_Data/cached_data_mossimage",
+    "output_dir": "./Outputs/mossimage_lora_output",
     "total_steps": 500,
     "batch_size": 1,
     "grad_accum_steps": 4,
@@ -115,7 +116,7 @@ else:
     cfg = {}
     print("[!] " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID          = cfg.get("model_id",          DEFAULTS["model_id"])
+MODEL_ID          = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 BASE_MODEL        = cfg.get("base_model",        DEFAULTS["base_model"])
 if BASE_MODEL not in TRANSFORMER_FOLDERS:
     BASE_MODEL = DEFAULTS["base_model"]
@@ -156,12 +157,8 @@ TURBO_LORA_STRENGTH = cfg.get("turbo_lora_strength", DEFAULTS["turbo_lora_streng
 TRIGGER_WORD     = cfg.get("trigger_word", "")
 PROJECT_NAME      = cfg.get("project_name", "").strip()
 
-if PROJECT_NAME:
-    CACHE_DIR  = f"./cached_data_mossimage_{PROJECT_NAME}"
-    OUTPUT_DIR = f"./mossimage_lora_output_{PROJECT_NAME}"
-else:
-    CACHE_DIR  = cfg.get("cache_dir",  DEFAULTS["cache_dir"])
-    OUTPUT_DIR = cfg.get("output_dir", DEFAULTS["output_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_mossimage_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./mossimage_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("output_dir"), DEFAULTS["output_dir"]))
 
 print(f"  {t('Model ID'):<22}: {MODEL_ID} ({SOURCE_MODELS[BASE_MODEL]})")
 print(f"  {t('Project Name'):<22}: {PROJECT_NAME if PROJECT_NAME else t('(Default)')}")

@@ -11,11 +11,12 @@ from pathlib import Path
 from boogu_dataset import CACHE_VERSION, build_metadata, cache_path, resolve_path
 from boogu_model import NF4_TRANSFORMER
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_output_dir
 import lora_options
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 SETTINGS_DIR = BASE_DIR / "settings"
-OUTPUT_DEFAULT = "./boogu_lora_output"
+OUTPUT_DEFAULT = "./Outputs/boogu_lora_output"
 MODEL_ID = "Boogu/Boogu-Image-0.1-Edit"
 TARGET_MODULES = "to_q,to_k,to_v,to_out.0,img_to_q,img_to_k,img_to_v,img_out,instruct_to_q,instruct_to_k,instruct_to_v,instruct_out"
 ACTIVE_CHILD = None
@@ -55,8 +56,8 @@ def main():
         precache_cfg = read_json(SETTINGS_DIR / "pre_cache_settings_boogu.json")
         train_cfg = read_json(SETTINGS_DIR / "train_settings_boogu.json")
         dataset_dir = resolve_path(precache_cfg.get("dataset_path", train_cfg.get("dataset_path", "./dataset")), BASE_DIR)
-        cache_dir = resolve_path(precache_cfg.get("cache_dir", train_cfg.get("cache_dir", "./cached_data_boogu")), BASE_DIR)
-        output_dir = resolve_path(train_cfg.get("output_dir", OUTPUT_DEFAULT), BASE_DIR)
+        cache_dir = resolve_cache_dir(precache_cfg.get("cache_dir", train_cfg.get("cache_dir")), "./Cache_Data/cached_data_boogu", BASE_DIR)
+        output_dir = resolve_output_dir(train_cfg.get("output_dir"), OUTPUT_DEFAULT, BASE_DIR)
         lora_type = str(train_cfg.get("lora_type", precache_cfg.get("lora_type", "edit"))).lower()
         if lora_type not in ("normal", "edit"):
             lora_type = "edit"

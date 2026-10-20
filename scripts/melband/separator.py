@@ -16,7 +16,7 @@ from i18n import t
 REPO_ID = "Kijai/MelBandRoFormer_comfy"
 REVISION = "6251b3a2bd544aaa31400138e55abda4722735cc"
 FICHERO = "MelBandRoformer_fp16.safetensors"
-CARPETA = "./MelBandRoFormer"
+CARPETA = "./Models/MelBandRoFormer"
 
 # 44,1 kHz es la tasa con la que se entreno. Separar a 32 k -- la del VAE de H3 --
 # daria peor resultado, asi que se remuestrea DESPUES, no antes.

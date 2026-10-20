@@ -33,9 +33,9 @@ from safetensors import safe_open
 from safetensors.torch import save_file
 from transformers import AutoModel, BitsAndBytesConfig
 
-BASE_DIR = sys.argv[1] if len(sys.argv) > 1 else "./MOSS-Image-Base"
-SFT_DIR = sys.argv[2] if len(sys.argv) > 2 else "./MOSS-Image-SFT"
-OUTPUT_DIR = sys.argv[3] if len(sys.argv) > 3 else "./MOSS-Image-NF4"
+BASE_DIR = sys.argv[1] if len(sys.argv) > 1 else "./Models/MOSS-Image-Base"
+SFT_DIR = sys.argv[2] if len(sys.argv) > 2 else "./Models/MOSS-Image-SFT"
+OUTPUT_DIR = sys.argv[3] if len(sys.argv) > 3 else "./Models/MOSS-Image-NF4"
 
 # Las capas lineales de los 42 bloques. El refinador de texto (text_embedder), los embedders,
 # las modulaciones y la salida se quedan en BF16.

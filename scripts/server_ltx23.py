@@ -21,6 +21,7 @@ import webbrowser
 from console_stream import read_console
 from trainer_stream import TrainerStream
 import i18n
+import project_layout
 import remote_access
 import file_transfer
 import gpu_stats
@@ -101,6 +102,12 @@ TRAIN_SCRIPT = SCRIPTS_DIR / "2_train_lora_LTX23.py"
 
 app = Flask(__name__)
 
+_layout_result = project_layout.ensure_layout(BASE_DIR)
+for _layout_item in _layout_result["moves"]:
+    print("[layout] {} -> {}".format(_layout_item["old"], _layout_item["new"]))
+for _layout_item in _layout_result["collisions"]:
+    print("[layout] {}: {} -> {}".format(_layout_item["status"], _layout_item["old"], _layout_item["new"]))
+
 runtime = TrainerStream(BASE_DIR, SETTINGS_DIR, "ltx23")
 
 
@@ -149,18 +156,15 @@ def write_json_file(path, data):
 def resolve_config_path(value, default):
     if value is None or str(value).strip() == "":
         value = default
-    path = Path(str(value))
-    if path.is_absolute():
-        return path
-    return (BASE_DIR / path).resolve()
+    return project_layout.resolve_project_path(value, default, BASE_DIR)
 
 
 def get_train_output_dir():
     cfg = read_json_file(TRAIN_CONFIG, {})
     proj = cfg.get("project_name", "").strip()
     if proj:
-        return resolve_config_path(f"LTX23_lora_output_{proj}", "LTX23_lora_output")
-    return resolve_config_path(cfg.get("output_dir"), "LTX23_lora_output")
+        return resolve_config_path(f"ltx23_lora_output_{proj}", "ltx23_lora_output")
+    return resolve_config_path(cfg.get("output_dir"), "ltx23_lora_output")
 
 
 def get_dataset_dir():
@@ -172,8 +176,8 @@ def get_precache_dir():
     cfg = read_json_file(PRECACHE_CONFIG, {})
     proj = cfg.get("project_name", "").strip()
     if proj:
-        return resolve_config_path(f"cached_data_LTX23_{proj}", "cached_data_LTX23")
-    return resolve_config_path(cfg.get("cache_dir"), "cached_data_LTX23")
+        return resolve_config_path(f"cached_data_ltx23_{proj}", "cached_data_ltx23")
+    return resolve_config_path(cfg.get("cache_dir"), "cached_data_ltx23")
 
 
 def get_script_for_name(script_name):
@@ -455,10 +459,10 @@ def save_precache():
             return jsonify({"status": "error", "error": t("JSON object required.")}), 400
         
         proj = data.get("project_name", "").strip()
-        cache_dir_name = f"cached_data_LTX23_{proj}" if proj else "cached_data_LTX23"
-        output_dir_name = f"LTX23_lora_output_{proj}" if proj else "LTX23_lora_output"
+        cache_dir_name = f"cached_data_ltx23_{proj}" if proj else "cached_data_ltx23"
+        output_dir_name = f"ltx23_lora_output_{proj}" if proj else "ltx23_lora_output"
 
-        data["cache_dir"] = f"./{cache_dir_name}"
+        data["cache_dir"] = f"./Cache_Data/{cache_dir_name}"
 
         # 1. Guardar en raíz con nombre genérico pre_cache_settings_ltx23.json (lectura por defecto)
         write_json_file(PRECACHE_CONFIG, data)
@@ -470,7 +474,7 @@ def save_precache():
             cache_dir_path.mkdir(parents=True, exist_ok=True)
             cache_json_file = cache_dir_path / f"pre_cache_settings_{proj}.json"
             write_json_file(cache_json_file, data)
-            saved_files.append(f"{cache_dir_name}/{cache_json_file.name}")
+            saved_files.append(f"Cache_Data/{cache_dir_name}/{cache_json_file.name}")
 
         # Sincronizar train_settings_ltx23.json en raíz
         train_cfg = read_json_file(TRAIN_CONFIG, {})
@@ -479,7 +483,7 @@ def save_precache():
         if "project_name" in data:
             train_cfg["project_name"] = data["project_name"]
             train_cfg["cache_dir"] = data["cache_dir"]
-            train_cfg["output_dir"] = f"./{output_dir_name}"
+            train_cfg["output_dir"] = f"./Outputs/{output_dir_name}"
         if "trigger_word" in data:
             train_cfg["trigger_word"] = data["trigger_word"]
         for key in PREVIEW_KEYS:
@@ -501,11 +505,11 @@ def save_train():
             return jsonify({"status": "error", "error": t("JSON object required.")}), 400
         
         proj = data.get("project_name", "").strip()
-        cache_dir_name = f"cached_data_LTX23_{proj}" if proj else "cached_data_LTX23"
-        output_dir_name = f"LTX23_lora_output_{proj}" if proj else "LTX23_lora_output"
+        cache_dir_name = f"cached_data_ltx23_{proj}" if proj else "cached_data_ltx23"
+        output_dir_name = f"ltx23_lora_output_{proj}" if proj else "ltx23_lora_output"
 
-        data["cache_dir"] = f"./{cache_dir_name}"
-        data["output_dir"] = f"./{output_dir_name}"
+        data["cache_dir"] = f"./Cache_Data/{cache_dir_name}"
+        data["output_dir"] = f"./Outputs/{output_dir_name}"
 
         # 1. Guardar en raíz con nombre genérico
         write_json_file(TRAIN_CONFIG, data)
@@ -524,7 +528,7 @@ def save_train():
             output_dir_path.mkdir(parents=True, exist_ok=True)
             output_json_file = output_dir_path / f"train_settings_{proj}.json"
             write_json_file(output_json_file, data)
-            saved_files.append(f"{output_dir_name}/{output_json_file.name}")
+            saved_files.append(f"Outputs/{output_dir_name}/{output_json_file.name}")
 
         return jsonify({"status": "ok", "file": saved_files[0], "all_saved": saved_files})
     except Exception as exc:

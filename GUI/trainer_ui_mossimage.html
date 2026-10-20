@@ -339,7 +339,7 @@
 
                     <div class="form-group">
                         <label>Cache Folder (Auto):</label>
-                        <input type="text" id="precache_cache_dir" value="./cached_data_mossimage" readonly title="Path generated automatically, for information">
+                        <input type="text" id="precache_cache_dir" value="./Cache_Data/cached_data_mossimage" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-group">
@@ -454,7 +454,7 @@
                 <div class="panel-body">
                     <div class="form-group">
                         <label>Output Dir (Auto):</label>
-                        <input type="text" id="train_output_dir" value="./mossimage_lora_output" readonly title="Path generated automatically, for information">
+                        <input type="text" id="train_output_dir" value="./Outputs/mossimage_lora_output" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-row">
@@ -905,8 +905,8 @@
 
         function updateProjectPaths() {
             const proj = document.getElementById('project_name').value.trim();
-            const cacheDir = proj ? `./cached_data_mossimage_${proj}` : './cached_data_mossimage';
-            const outputDir = proj ? `./mossimage_lora_output_${proj}` : './mossimage_lora_output';
+            const cacheDir = proj ? `./Cache_Data/cached_data_mossimage_${proj}` : './Cache_Data/cached_data_mossimage';
+            const outputDir = proj ? `./Outputs/mossimage_lora_output_${proj}` : './Outputs/mossimage_lora_output';
 
             document.getElementById('precache_cache_dir').value = cacheDir;
             document.getElementById('train_output_dir').value = outputDir;
