@@ -45,14 +45,7 @@ CODE_DIR = BASE_DIR / "code"
 SCRIPTS_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = GUI_DIR / "launcher.json"
 
-_layout_result = project_layout.ensure_layout(BASE_DIR)
-for _layout_item in _layout_result["moves"]:
-    print("[layout] {} -> {}".format(_layout_item["old"], _layout_item["new"]))
-for _layout_item in _layout_result["collisions"]:
-    print("[layout] {}: {} -> {}".format(_layout_item["status"], _layout_item["old"], _layout_item["new"]))
-if _layout_result["moves"]:
-    print("[layout] moved {} folders, rewrote {} files".format(
-        len(_layout_result["moves"]), len(_layout_result["rewrites"])))
+project_layout.ensure_layout_and_log(BASE_DIR)
 
 app = Flask(__name__)
 logging.getLogger("werkzeug").setLevel(logging.ERROR)

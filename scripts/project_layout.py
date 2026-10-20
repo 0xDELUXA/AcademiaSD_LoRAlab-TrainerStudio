@@ -4,7 +4,13 @@ import errno
 import json
 import os
 import shutil
+import time
 from pathlib import Path
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = PROJECT_ROOT / "Models"
@@ -60,6 +66,25 @@ OUTPUT_NAME_ALIASES = {
     "MiniMaxH3_lora_output": "minimaxh3_lora_output",
 }
 
+OUTPUT_NAME_PREFIXES = (
+    "anima_lora_output",
+    "boogu_lora_output",
+    "ernie_lora_output",
+    "flux3klein_lora_output",
+    "ideogram4_lora_output",
+    "klein9b_lora_output",
+    "krea2_lora_output",
+    "ltx23_lora_output",
+    "minimaxh3_lora_output",
+    "mossimage_lora_output",
+    "qwen_image21_lora_output",
+    "qwenimage2512_lora_output",
+    "sdxl_lora_output",
+    "zimage_lora_output",
+)
+
+_BUSY_CACHE = {}
+
 
 def canonical_name(name, aliases):
     for old, new in aliases.items():
@@ -76,6 +101,46 @@ def canonical_cache_name(name):
 
 def canonical_output_name(name):
     return canonical_name(name, OUTPUT_NAME_ALIASES)
+
+
+def is_legacy_output_name(name):
+    canonical = canonical_output_name(name)
+    return any(canonical == prefix or canonical.startswith(prefix + "_") for prefix in OUTPUT_NAME_PREFIXES)
+
+
+def training_in_progress(root=PROJECT_ROOT):
+    root_path = Path(root).resolve()
+    key = str(root_path)
+    now = time.monotonic()
+    cached = _BUSY_CACHE.get(key)
+    if cached and now - cached[0] < 2.0:
+        return cached[1]
+    busy = False
+    if psutil is not None:
+        for proc in psutil.process_iter(["pid", "cmdline", "cwd"]):
+            try:
+                info = proc.info
+                if info.get("pid") == os.getpid():
+                    continue
+                cwd = info.get("cwd")
+                if not cwd or Path(cwd).resolve() != root_path:
+                    continue
+                arguments = info.get("cmdline") or []
+                if "-m" in arguments:
+                    continue
+                for argument in arguments[1:]:
+                    if argument.startswith("-"):
+                        continue
+                    filename = os.path.basename(argument)
+                    if filename.endswith(".py") and filename.startswith(("2_train_lora_", "1_pre_cache_", "0_caption_")):
+                        busy = True
+                    break
+                if busy:
+                    break
+            except (psutil.Error, OSError):
+                continue
+    _BUSY_CACHE[key] = (now, busy)
+    return busy
 
 
 def _layout_dirs(root):
@@ -131,10 +196,14 @@ def move_path(src, dst):
     try:
         if shutil.disk_usage(dst.parent).free < _directory_size(src):
             return "no_space", ""
-        shutil.move(str(src), str(dst))
-        return "copied", ""
+        if src.is_symlink():
+            os.symlink(os.readlink(src), dst)
+        elif src.is_dir():
+            shutil.copytree(src, dst, symlinks=True)
+        else:
+            shutil.copy2(src, dst)
     except OSError as exc:
-        if _lexists(src) and _lexists(dst):
+        if _lexists(dst):
             try:
                 if dst.is_dir() and not dst.is_symlink():
                     shutil.rmtree(dst)
@@ -143,6 +212,14 @@ def move_path(src, dst):
             except OSError:
                 pass
         return "failed", str(exc)
+    try:
+        if src.is_symlink() or not src.is_dir():
+            src.unlink()
+        else:
+            shutil.rmtree(src)
+    except OSError as exc:
+        return "copied", "legacy folder not fully removed: " + str(exc)
+    return "copied", ""
 
 
 def _normalized(value):
@@ -178,7 +255,7 @@ def normalize_storage_field(key, value):
     name = Path(value).name
     if key == "cache_dir" and name.startswith("cached_data_"):
         return "./Cache_Data/" + canonical_cache_name(name)
-    if key == "output_dir" and "_lora_output" in name:
+    if key == "output_dir" and is_legacy_output_name(name):
         return "./Outputs/" + canonical_output_name(name)
     return value
 
@@ -379,6 +456,14 @@ def _migrate_item(kind, src, dst, root, dry_run, moves, collisions):
 def ensure_layout(root=PROJECT_ROOT, dry_run=False):
     root = Path(root).resolve()
     models, outputs, cache = _layout_dirs(root)[1:]
+    if not dry_run and training_in_progress(root):
+        entry = {
+            "kind": "layout",
+            "old": str(root),
+            "new": str(models),
+            "status": "busy",
+        }
+        return {"root": str(root), "moves": [], "collisions": [entry], "rewrites": []}
     if not dry_run:
         try:
             models.mkdir(parents=True, exist_ok=True)
@@ -402,7 +487,7 @@ def ensure_layout(root=PROJECT_ROOT, dry_run=False):
             if path.name.startswith("cached_data_") and _is_dir(path):
                 target = cache / canonical_cache_name(path.name)
                 _migrate_item("cache", path, target, root, dry_run, moves, collisions)
-            if "_lora_output" in path.name and _is_dir(path):
+            if is_legacy_output_name(path.name) and _is_dir(path):
                 target = outputs / canonical_output_name(path.name)
                 _migrate_item("output", path, target, root, dry_run, moves, collisions)
     rewritten = []
@@ -412,6 +497,21 @@ def ensure_layout(root=PROJECT_ROOT, dry_run=False):
     return {"root": str(root), "moves": moves, "collisions": collisions, "rewrites": rewritten}
 
 
+def ensure_layout_and_log(root=PROJECT_ROOT):
+    result = ensure_layout(root)
+    for item in result["moves"]:
+        print("[layout] {} -> {}".format(item["old"], item["new"]))
+    for item in result["collisions"]:
+        line = "[layout] {}: {} -> {}".format(item["status"], item["old"], item["new"])
+        if item.get("error"):
+            line += " | " + item["error"]
+        print(line)
+    if result["moves"]:
+        print("[layout] moved {} folders, rewrote {} files".format(
+            len(result["moves"]), len(result["rewrites"])))
+    return result
+
+
 def _remap_absolute_model(path, root):
     path = Path(path)
     try:
@@ -419,6 +519,8 @@ def _remap_absolute_model(path, root):
     except OSError:
         return path
     if parent != root or path.name not in LEGACY_MODEL_NAMES:
+        return path
+    if _lexists(path) and training_in_progress(root):
         return path
     target = root / "Models" / path.name
     if target.exists():
@@ -445,26 +547,31 @@ def resolve_model_dir(value=None, default=None, root=PROJECT_ROOT):
     parts = path.parts
     if parts and parts[0].casefold() == "models":
         target = root / "Models" / Path(*parts[1:])
+        source = root / parts[1] if len(parts) == 2 else None
+        if source is not None and _lexists(source) and training_in_progress(root):
+            return source
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
         except OSError:
-            if len(parts) == 2 and _lexists(root / parts[1]):
-                return root / parts[1]
+            if source is not None and _lexists(source):
+                return source
             return target
-        if len(parts) == 2:
-            source = root / parts[1]
-            if not target.exists() and _lexists(source) and _is_dir(source):
-                status, _ = move_path(source, target)
-                if status in ("moved", "copied"):
-                    entry = _migration_entry("model", source, target)
-                    entry["status"] = status
-                    rewritten = rewrite_references([entry], root)
-                    write_report([entry], rewritten, root)
+        if source is not None and not target.exists() and _lexists(source) and _is_dir(source):
+            status, _ = move_path(source, target)
+            if status in ("moved", "copied"):
+                entry = _migration_entry("model", source, target)
+                entry["status"] = status
+                rewritten = rewrite_references([entry], root)
+                write_report([entry], rewritten, root)
+            elif status in ("collision", "no_space", "failed"):
+                return source
         return target
     if len(parts) == 1:
         name = parts[0]
         target = root / "Models" / name
         source = root / name
+        if _lexists(source) and training_in_progress(root):
+            return source
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
         except OSError:
@@ -496,12 +603,14 @@ def _resolve_storage(kind, value, default, root):
         raise ValueError("Storage path is empty")
     path = Path(os.path.expandvars(os.path.expanduser(raw)))
     name = path.name
-    match = name.startswith("cached_data_") if kind == "cache" else "_lora_output" in name
+    match = name.startswith("cached_data_") if kind == "cache" else is_legacy_output_name(name)
     if path.is_absolute():
         if not match:
             return path
         parent = path.parent.resolve()
         if parent == root:
+            if _lexists(path) and training_in_progress(root):
+                return path
             target = _storage_target(kind, name, root)
             if not target.exists() and _lexists(path) and _is_dir(path):
                 status, _ = move_path(path, target)
@@ -517,6 +626,8 @@ def _resolve_storage(kind, value, default, root):
         return (root / path).resolve()
     target = _storage_target(kind, name, root)
     source = root / name
+    if _lexists(source) and training_in_progress(root):
+        return source
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
     except OSError:
@@ -549,7 +660,7 @@ def resolve_project_path(value=None, default=None, base_dir=PROJECT_ROOT):
     name = Path(raw).name
     if name.startswith("cached_data_"):
         return resolve_cache_dir(raw, default, base)
-    if "_lora_output" in name:
+    if is_legacy_output_name(name):
         return resolve_output_dir(raw, default, base)
     path = Path(os.path.expandvars(os.path.expanduser(raw)))
     if path.is_absolute():

@@ -86,6 +86,7 @@ PRECACHE_SCRIPT = SCRIPTS_DIR / "1_pre_cache_MiniMaxH3.py"
 TRAIN_SCRIPT = SCRIPTS_DIR / "2_train_lora_MiniMaxH3.py"
 
 app = Flask(__name__)
+project_layout.ensure_layout_and_log(BASE_DIR)
 runtime = TrainerStream(BASE_DIR, SETTINGS_DIR, "minimaxh3")
 
 # LOG DE TAREAS QUE CORREN DENTRO DEL SERVIDOR.

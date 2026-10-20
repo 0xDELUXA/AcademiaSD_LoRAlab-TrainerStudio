@@ -102,11 +102,7 @@ TRAIN_SCRIPT = SCRIPTS_DIR / "2_train_lora_boogu.py"
 
 app = Flask(__name__)
 
-_layout_result = project_layout.ensure_layout(BASE_DIR)
-for _layout_item in _layout_result["moves"]:
-    print("[layout] {} -> {}".format(_layout_item["old"], _layout_item["new"]))
-for _layout_item in _layout_result["collisions"]:
-    print("[layout] {}: {} -> {}".format(_layout_item["status"], _layout_item["old"], _layout_item["new"]))
+project_layout.ensure_layout_and_log(BASE_DIR)
 
 runtime = TrainerStream(BASE_DIR, SETTINGS_DIR, "boogu")
 
