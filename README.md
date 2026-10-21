@@ -37,13 +37,13 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 
 | Trainer | Trains | Minimum VRAM |
 | :--- | :--- | :--- |
-| **Fibo 2.0** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) on BRIA Fibo 2.0 Dev | 10 GB (512²) / 12 GB (1024²) |
+| **Fibo 2.0** *(experimental)* | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) on BRIA Fibo 2.0 Dev | 10 GB (512²) / 12 GB (1024²) |
 | **Qwen-Image 2.1** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) | 8 GB |
 | **Qwen-Image 2512 / Edit 2511** | Image LoRAs on Qwen-Image-2512 **and edit LoRAs** on Qwen-Image-Edit-2511 (before → after); 20B in NF4 with block swap | **~4 GB** (512², measured) / 8 GB (edit at 1024²) |
 | **Krea 2** | Image LoRAs (characters, objects, styles) for Krea 2 Raw and Turbo | 8 GB |
 | **Boogu Image Edit 0.1** | Edit LoRAs (before → after) and image LoRAs on Boogu-Image-0.1-Edit | **10 GB** (512², ~8 GB measured) |
 | **Z-Image** | Image LoRAs (characters, objects, styles) for Z-Image and Z-Image-Turbo | 8 GB |
-| **Ming-Image** | Image LoRAs for transparent designs and edit LoRAs (before → after) on inclusionAI's Ming-Image 0.1 Design | 13 GB (1024²) |
+| **Ming-Image** *(experimental)* | Image LoRAs for transparent designs and edit LoRAs (before → after) on inclusionAI's Ming-Image 0.1 Design | 13 GB (1024²) |
 | **Anima** | Anime and illustration LoRAs (characters, styles) | **4 GB** (NF4) / 6 GB (BF16) |
 | **ERNIE-Image** | Image LoRAs (characters, objects, styles); supports rsLoRA, LoRA+ and LoKr | **Under 8 GB** (NF4; verified during training) |
 | **FLUX.2 Klein 9B** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) | 12 GB |
@@ -275,7 +275,7 @@ All times were measured on an RTX 5080 16 GB.
 
 ### Fibo 2.0 — image and edit LoRAs (BRIA)
 
-> **New:** full runs (pre-cache, training, previews, edit mode, resume) verified on Fibo 2.0 Dev.
+> **New and experimental:** full runs (pre-cache, training, previews, edit mode, resume) verified on Fibo 2.0 Dev. It works, but it is young: the defaults will move as more people test it.
 
 - **Normal LoRAs** (characters, objects, styles): one image + one caption each.
 - **Edit LoRAs**: pairs named `name_before.png` / `name_after.png` plus the instruction in `name.txt` (for example `replace the jacket with a red leather one`). Choose **LoRA Type → Edit**. The before image goes through the text encoder with the instruction and, as a clean latent, conditions the generation as context tokens; the loss is computed only on the "after".
@@ -390,7 +390,7 @@ Copying the blocks from RAM costs little on a x16 slot (2.2 against 1.8 s/step a
 
 ### Ming-Image — image and edit LoRAs for transparent designs
 
-> **New:** full runs (pre-cache, training, previews, edit mode, resume) verified on Ming-Image 0.1 Design.
+> **New and experimental:** full runs (pre-cache, training, previews, edit mode, resume) verified on Ming-Image 0.1 Design. It works, but it is young: the defaults will move as more people test it.
 
 - **Normal LoRAs**: one image + one caption each, in Ming-Image's own **Figma-style JSON** format. The captioner writes it for you.
 - **Edit LoRAs**: pairs named `name_before.png` / `name_after.png` plus one instruction in `name.txt`. The model sees the before image and learns to produce the after.
