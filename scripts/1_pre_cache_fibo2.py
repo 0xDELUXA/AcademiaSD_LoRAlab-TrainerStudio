@@ -223,6 +223,15 @@ def ensure_model_downloaded(local_path, text_encoder_dir):
         ignore_patterns=other_text_encoders,
     )
     print("✓ " + t("Model downloaded to: {path}", path=downloaded_path))
+
+    if not os.path.exists(os.path.join(local_path, text_encoder_dir, "config.json")):
+        # El repo puede publicar solo una variante del text encoder.
+        print("[!] " + t("The model on Hugging Face does not have the text encoder {name}.",
+                         name=text_encoder_dir))
+        print("  " + t("Choose another one in the pre-cache, or build it locally with:"))
+        print("      tools/fibo2/5_conversor_Fibo2_NF4.py")
+        sys.exit(3)
+
     return downloaded_path
 
 

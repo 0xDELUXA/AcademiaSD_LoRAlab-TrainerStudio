@@ -129,6 +129,11 @@ def load_captioner(model_id):
         snapshot_download(repo_id=HF_REPO_ID, local_dir=model_id, token=token, max_workers=2,
                           allow_patterns=["text_encoder_NF4/*", "processor/*"])
 
+    if not os.path.exists(os.path.join(path, "config.json")):
+        print("[!] " + t("The model on Hugging Face does not have the text encoder NF4."), flush=True)
+        print("  " + t("Build it locally with: tools/fibo2/5_conversor_Fibo2_NF4.py"), flush=True)
+        return None, None
+
     print(t("Loading {name}...", name="Qwen3-VL-4B (NF4)"), flush=True)
     model = Qwen3VLForConditionalGeneration.from_pretrained(path, dtype=torch.bfloat16, device_map="cuda")
     model.eval()
