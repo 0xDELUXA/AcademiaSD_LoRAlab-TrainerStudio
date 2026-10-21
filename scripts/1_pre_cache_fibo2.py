@@ -242,6 +242,9 @@ def image_size(aspect_ratio, area, multiple=16):
     Es el mismo criterio que BriaFibo2ImageProcessor.get_image_size, con la rejilla ampliable
     a 32 o 64 px (más de un tamaño por cubo = menos cubos = lotes más homogeneous).
     """
+    # El área puede llegar como float (al escalar para el tope de lado) y range() exige enteros.
+    # The area can arrive as a float (when scaled for the side cap) and range() needs integers.
+    area = int(area)
     min_side = 4 * multiple
     sizes = [
         (width, height)
@@ -267,8 +270,14 @@ def image_size_capped(aspect_ratio, area, max_side, multiple=16):
     width, height = image_size(aspect_ratio, area, multiple)
     longest = max(width, height)
     if max_side and longest > max_side:
-        scale = (max_side / longest) ** 2
-        width, height = image_size(aspect_ratio, area * scale, multiple)
+        # El resultado se escala al tope, manteniendo la proporción y el múltiplo. Escalar
+        # el área y volver a buscar en la rejilla puede devolver un tamaño que aún se pasa.
+        # The result is scaled to the cap, keeping the proportion and the multiple. Scaling
+        # the area and searching the grid again can return a size that is still over.
+        scale = max_side / longest
+        min_side = 4 * multiple
+        width = max(min_side, int(width * scale / multiple) * multiple)
+        height = max(min_side, int(height * scale / multiple) * multiple)
     return width, height
 
 
