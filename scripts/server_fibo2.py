@@ -517,7 +517,7 @@ def save_precache():
         cache_dir_name = f"cached_data_fibo2_{proj}" if proj else "cached_data_fibo2"
         output_dir_name = f"fibo2_lora_output_{proj}" if proj else "fibo2_lora_output"
 
-        data["cache_dir"] = f"./{cache_dir_name}"
+        data["cache_dir"] = f"./Cache_Data/{cache_dir_name}"
 
         # 1. Guardar en raíz con nombre genérico pre_cache_settings_fibo2.json (lectura por defecto)
         # Lo que la GUI no mande (model_id...) se conserva.

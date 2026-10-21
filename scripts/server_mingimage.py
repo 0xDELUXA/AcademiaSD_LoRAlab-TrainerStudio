@@ -508,7 +508,7 @@ def save_precache():
         cache_dir_name = f"cached_data_mingimage_{proj}" if proj else "cached_data_mingimage"
         output_dir_name = f"mingimage_lora_output_{proj}" if proj else "mingimage_lora_output"
 
-        data["cache_dir"] = f"./{cache_dir_name}"
+        data["cache_dir"] = f"./Cache_Data/{cache_dir_name}"
 
         # 1. Guardar en raíz con nombre genérico pre_cache_settings_mingimage.json (lectura por defecto)
         write_json_file(PRECACHE_CONFIG, data)
