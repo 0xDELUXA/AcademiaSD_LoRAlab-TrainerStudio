@@ -43,7 +43,7 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 | **Krea 2** | Image LoRAs (characters, objects, styles) for Krea 2 Raw and Turbo | 8 GB |
 | **Boogu Image Edit 0.1** | Edit LoRAs (before → after) and image LoRAs on Boogu-Image-0.1-Edit | **10 GB** (512², ~8 GB measured) |
 | **Z-Image** | Image LoRAs (characters, objects, styles) for Z-Image and Z-Image-Turbo | 8 GB |
-| **Ming-Image** *(experimental)* | Image LoRAs for transparent designs and edit LoRAs (before → after) on inclusionAI's Ming-Image 0.1 Design | 13 GB (1024²) |
+| **Ming-Image** *(experimental)* | Image LoRAs for transparent designs and edit LoRAs (before → after) on inclusionAI's Ming-Image 0.1 Design | 7 GB (512²) / 13 GB (1024²) |
 | **Anima** | Anime and illustration LoRAs (characters, styles) | **4 GB** (NF4) / 6 GB (BF16) |
 | **ERNIE-Image** | Image LoRAs (characters, objects, styles); supports rsLoRA, LoRA+ and LoKr | **Under 8 GB** (NF4; verified during training) |
 | **FLUX.2 Klein 9B** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) | 12 GB |
@@ -401,7 +401,7 @@ Copying the blocks from RAM costs little on a x16 slot (2.2 against 1.8 s/step a
 - **Previews:** 12 steps / CFG 1.0, the official pipeline's `pos + cfg·(pos−neg)`, and up to **4 reference images** for the edit preview (`<image1>`, `<image2>`, …).
 - **Live settings:** the changes saved with *Save JSON* while the training runs are applied on the next step, and the console says what changed.
 
-Measured on an RTX 5080 16 GB (rank 8, batch 1): **1024² → 12 s/step and 13.2 GB of peak VRAM**; **512² → 2.4 s/step** (a real run of 960 steps at 512² averaged 1.3 s/step). The pre-cache proposes 768² by default.
+Measured on an RTX 5080 16 GB (rank 8, batch 1): **1024² → 12 s/step and 13.2 GB of peak VRAM**; **512² → 2.4 s/step and 7 GB of peak VRAM** (a real run of 960 steps at 512² averaged 1.3 s/step). The pre-cache proposes 768² by default.
 
 The official image-edit task works at 1024: 512 and 768 are out of its distribution, so train edit LoRAs at 1024 if your card allows it.
 
