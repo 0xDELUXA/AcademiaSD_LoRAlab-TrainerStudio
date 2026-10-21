@@ -1115,5 +1115,15 @@
   "The model the LoRA is trained on, and the one to use it with in ComfyUI. Qwen-Image-2512 generates from text; Qwen-Image-Edit-2511 edits an image. They are separate fine-tunes of Qwen-Image, so a LoRA trained on one is not guaranteed to work on the other. An edit LoRA (before / after pairs) always uses Edit-2511.": "Das Modell, auf dem die LoRA trainiert wird und mit dem sie in ComfyUI benutzt werden muss. Qwen-Image-2512 erzeugt aus Text; Qwen-Image-Edit-2511 bearbeitet ein Bild. Es sind getrennte Fine-Tunes von Qwen-Image, eine auf dem einen trainierte LoRA funktioniert also nicht unbedingt auf dem anderen. Eine Edit-LoRA (Vorher-/Nachher-Paare) verwendet immer Edit-2511.",
   "Writes one .txt per image with Qwen3-VL-8B (NF4, ~5.5 GB VRAM), with the trigger word first. It is shared by every trainer: ~5 GB are downloaded only the first time.": "Schreibt eine .txt pro Bild mit Qwen3-VL-8B (NF4, ~5,5 GB VRAM), mit dem Trigger-Wort am Anfang. Alle Trainer teilen ihn: ~5 GB werden nur beim ersten Mal heruntergeladen.",
   "The cache has before/after pairs: an edit LoRA needs Qwen-Image-Edit-2511 as the base model.": "Der Cache enthält Vorher/Nachher-Paare: eine Edit-LoRA braucht Qwen-Image-Edit-2511 als Basismodell.",
-  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "Der gespeicherte Checkpoint passt nicht zu diesen LoRA-Einstellungen (Rank, LoKr...); ein neues Training beginnt."
+  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "Der gespeicherte Checkpoint passt nicht zu diesen LoRA-Einstellungen (Rank, LoKr...); ein neues Training beginnt.",
+  "Text Encoder (Qwen3-VL-4B)": "Text Encoder (Qwen3-VL-4B)",
+  "🚀 Fast Previews (fewer steps, no CFG)": "🚀 Schnelle Vorschauen (weniger Schritte, ohne CFG)",
+  "Fast steps": "Schnelle Schritte",
+  "Blocks: attention + MLP": "Blöcke: Attention + MLP",
+  "All linear layers (BRIA recipe)": "Alle linearen Schichten (BRIA-Rezept)",
+  "Writes one .txt per image with Qwen3-VL-4B, the text encoder of Fibo 2.0 itself (NF4, ~2.7 GB VRAM), with the trigger word first. No extra download.": "Schreibt eine .txt pro Bild mit Qwen3-VL-4B, dem Text-Encoder von Fibo 2.0 selbst (NF4, ~2,7 GB VRAM), mit dem Trigger-Wort zuerst. Kein zusätzlicher Download.",
+  "Blocks trains attention and MLP of the 44 blocks: enough for characters, objects and styles. All also trains the perceptor that turns the caption into gist tokens, the modulation of every block and the input/output layers: that is the recipe BRIA used for Fibo 2.0, it gives the most control and it is heavier.": "Blocks trainiert Attention und MLP der 44 Blöcke: genug für Charaktere, Objekte und Stile. All trainiert zusätzlich den Perceiver, der den Caption in Gist-Token verwandelt, die Modulation jedes Blocks und die Ein-/Ausgabeschichten: das ist das Rezept, mit dem BRIA Fibo 2.0 trainiert hat; es gibt die meiste Kontrolle und ist schwerer.",
+  "Preview Size:": "Vorschaugröße:",
+  "The LoKr cannot be written in ComfyUI's fused layers: {n} layers are left out.": "Das LoKr lässt sich nicht in ComfyUIs fusionierte Schichten schreiben: {n} Schichten fallen weg.",
+  "{n} layers could not be mapped to ComfyUI.": "{n} Schichten konnten nicht auf ComfyUI abgebildet werden."
 }

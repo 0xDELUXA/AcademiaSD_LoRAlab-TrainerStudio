@@ -37,6 +37,7 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 
 | Trainer | Trains | Minimum VRAM |
 | :--- | :--- | :--- |
+| **Fibo 2.0** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) on BRIA Fibo 2.0 Dev | 10 GB (512²) / 12 GB (1024²) |
 | **Qwen-Image 2.1** | Image LoRAs (characters, objects, styles) **and edit LoRAs** (before → after) | 8 GB |
 | **Qwen-Image 2512 / Edit 2511** | Image LoRAs on Qwen-Image-2512 **and edit LoRAs** on Qwen-Image-Edit-2511 (before → after); 20B in NF4 with block swap | **~4 GB** (512², measured) / 8 GB (edit at 1024²) |
 | **Krea 2** | Image LoRAs (characters, objects, styles) for Krea 2 Raw and Turbo | 8 GB |
@@ -70,6 +71,8 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 **Linux:** ya tiene soporte para Linux. Cada `.bat` tiene su `.sh` equivalente; la instalación y el uso están en [docs/Linux.md](docs/Linux.md). Gracias a **[Jonathan Hecl (@jonathanhecl)](https://github.com/jonathanhecl)** por aportarlo.
 
 **FLUX.3 Image Klein:** nuevo entrenador de LoRAs normales y de edición (antes → después) para FLUX.3 Image Klein Base, desde 8 GB de VRAM. El captioner escribe en los formatos propios de FLUX.3 (prosa detallada, y opcionalmente con tabla de cajas `<id>`; en edición, la instrucción con `<ref_image_0>`). Necesita la versión nueva de diffusers: ejecuta **`Update_LoRAlab-TrainerStudio.bat`** antes de abrirlo. Detalles en la sección *FLUX.3 Image Klein*.
+
+**Fibo 2.0:** nuevo entrenador de LoRAs de imagen y de edición (antes → después) para **Fibo 2.0 Dev** de BRIA (8,1 B, CC BY-NC 4.0, uso no comercial). El transformador va en **NF4** (5,2 GB de VRAM) y el text encoder (Qwen3-VL-4B) solo se usa en el pre-caché. Necesita la versión nueva de diffusers (con `BriaFibo2Pipeline`): ejecuta **`Update_LoRAlab-TrainerStudio.bat`** antes de abrirlo. Detalles en la sección *Fibo 2.0*.
 
 **MOSS-Image:** nuevo entrenador de LoRAs de imagen para MOSS-Image de OpenMOSS (Apache 2.0), sobre **Base** (el recomendado para LoRAs) o **SFT**, con la misma pre-caché para los dos. Entrena a 512² con menos de 6 GB de VRAM. El text encoder (Qwen3.5-9B) se elige en el pre-caché: BF16 exacto repartido entre GPU y RAM (por defecto), INT8 o NF4. Las previews pueden usar el adaptador turbo de 4 pasos de darask0 (unos 4 s por imagen en vez de 43 s). Detalles en la sección *MOSS-Image*.
 
@@ -266,6 +269,32 @@ ComfyUI's built-in TAESD preview method does not load these files: use the KJNod
 > ⚠️ **About the default settings:** the tests were made to check that every training works, not to find the best performance or quality. Run your own tests with different settings (steps, learning rate, rank, resolution, captions) to improve the quality of your LoRAs.
 
 All times were measured on an RTX 5080 16 GB.
+
+### Fibo 2.0 — image and edit LoRAs (BRIA)
+
+> **New:** full runs (pre-cache, training, previews, edit mode, resume) verified on Fibo 2.0 Dev.
+
+- **Normal LoRAs** (characters, objects, styles): one image + one caption each.
+- **Edit LoRAs**: pairs named `name_before.png` / `name_after.png` plus the instruction in `name.txt` (for example `replace the jacket with a red leather one`). Choose **LoRA Type → Edit**. The before image goes through the text encoder with the instruction and, as a clean latent, conditions the generation as context tokens; the loss is computed only on the "after".
+- **The model:** `briaai/Fibo-2.0-dev`, the full non-distilled base (8.1 B, flow matching on the FLUX.2 VAE, Qwen3-VL-4B as text encoder). Its licence is **CC BY-NC 4.0**: non-commercial use only. Put the diffusers folder as `Fibo2_Dev-Raw/` next to the studio and run `tools/fibo2/5_conversor_Fibo2_NF4.py` once: it writes `Fibo2_Dev-NF4/` with the transformer in NF4 and the text encoder in BF16, INT8 and NF4. The conversion needs diffusers with `BriaFibo2Pipeline` (merged upstream): run `Update_LoRAlab-TrainerStudio.bat` first.
+- **NF4:** the attention, MLP and cross-attention of the 44 blocks are quantized (342 layers); the perceptor that turns the caption into gist tokens, the modulation of every block and the input/output layers stay in BF16 (73 layers), because quantizing them puts noise in the text path. The transformer is 5.2 GB in VRAM instead of 16 GB.
+- **Text encoder for the pre-cache:** Qwen3-VL-4B, the model's own — **NF4 (~2.7 GB, default)**, INT8, BF16 (9 GB+ VRAM) or BF16 with CPU offload (exact, any GPU). The pre-cache runs it once; the training never loads it.
+- **Captions:** Fibo 2.0 was trained on structured JSON captions (VGL). A plain `.txt` also works (the pipeline reads it as a short description); for the best results drop a `<name>.json` next to the image with the structured caption — the pre-cache prefers the `.json` over the `.txt`, and the Dataset Manager shows and edits whichever one is there. A `text_render` entry is drawn and shown to the model exactly as in training, so the text of the image comes out right; above the noise level 0.9 the caption goes in without those drawings, as in the official recipe.
+- **Recipe:** the one BRIA publishes in `fine_tuning/train_lora.py`: logit-normal noise with 10 % uniform, 10 % text dropout, 20 % context dropout in edit mode, AdamW (weight decay 0.01), gradient clip 1.0.
+- **LoRA Targets:** *All* (default) trains all 415 linear layers, exactly the recipe BRIA used; *Blocks* trains only the attention and MLP of the 44 blocks.
+- **Previews:** 30 steps / CFG 5, the model's own defaults, and a **Preview Size** (Training / 768 / 1024) to see the result at the size you will use in ComfyUI even if you train at 512. **Fast Previews** cuts the steps and the guidance: Fibo 2.0 Dev has no distilled LoRA (the "Edit Turbo" is another checkpoint), so the preview is about twice as fast but rougher.
+- **The LoRA is exported for ComfyUI**, in the format its loader takes (`diffusion_model.<capa>.lora_A/lora_B` + `alpha`). ComfyUI runs its own repack of Fibo 2.0, where the attention, the MLP and the cross-attention are single fused matrices, so the layers that fuse are re-written as one LoRA of several times the rank: the applied change is exactly the same as in diffusers, but the file is about half again as big.
+- **To convert a LoRA trained before this change** (with the `transformer.*` keys), without retraining: `python tools/fibo2/7_conversor_lora_comfyui.py <lora.safetensors>`. It rewrites the keys in place and keeps the metadata.
+- **Technical notes:** [docs/README_Fibo2.md](docs/README_Fibo2.md).
+
+| Measured on an RTX 5080 16 GB (rank 8, LoRA Targets: all) | s/step | Peak VRAM |
+| :--- | :--- | :--- |
+| Image 512² | 2.0 | 8.7 GB |
+| Image 1024² | 6.2 | 11.2 GB |
+| Edit 512² | 3.1 | 9.9 GB |
+| Edit 1024² | 14.9 | 15.9 GB |
+
+The edit mode adds the tokens of the before image to the sequence, so at 1024² it needs 16 GB: train edit LoRAs at 512² (about 10 GB).
 
 ### Qwen-Image 2.1 — image and edit LoRAs
 
@@ -564,7 +593,7 @@ Detailed measurements and the reasoning behind each design decision are in `docs
 
 ## 🛠️ Tools for advanced users
 
-`tools\` contains the scripts used to build the NF4 models from the originals (`Run_Conversor_Krea2.bat`, `Run_Conversor_LTX23.bat`, `5_conversor_QwenImage21_NF4.py`, `5_conversor_ZImage_NF4.py`, `5_conversor_Klein9B_NF4.py`) and a `.parquet` dataset extractor for Qwen-Image 2.1 (`6_extract_parquet.py`). They are not needed to train: the trainers download the ready-made NF4 models.
+`tools\` contains the scripts used to build the NF4 models from the originals (`Run_Conversor_Krea2.bat`, `Run_Conversor_LTX23.bat`, `5_conversor_QwenImage21_NF4.py`, `5_conversor_ZImage_NF4.py`, `5_conversor_Klein9B_NF4.py`, `5_conversor_Fibo2_NF4.py`) and a `.parquet` dataset extractor for Qwen-Image 2.1 (`6_extract_parquet.py`). They are not needed to train: the trainers download the ready-made NF4 models.
 
 ## 📁 Structure
 
@@ -586,13 +615,13 @@ AcademiaSD_LoRAlab-TrainerStudio/
 └── settings/                         # Your settings, HF token, network.json and ui.json (created on first use, never uploaded)
 ```
 
-Models (`Krea-2-NF4`, `LTX23-NF4`, `MiniMax-H3-NF4`, `Qwen-Image21-NF4`, `Z-Image_NF4`, `Anima-Base`, `FLUX.2-Klein-9B_NF4`, `FLUX.3-Image-Klein_NF4`, `Ideogram4-NF4`, `MOSS-Image-NF4`, `SDXL-Models`, captioners), caches and LoRA outputs are created next to these folders on first use.
+Models (`Krea-2-NF4`, `LTX23-NF4`, `MiniMax-H3-NF4`, `Qwen-Image21-NF4`, `Z-Image_NF4`, `Anima-Base`, `FLUX.2-Klein-9B_NF4`, `FLUX.3-Image-Klein_NF4`, `Ideogram4-NF4`, `MOSS-Image-NF4`, `Fibo2_Dev-NF4`, `SDXL-Models`, captioners), caches and LoRA outputs are created next to these folders on first use.
 
 ---
 
 ## 📜 Licenses
 
-The code is released under the **MIT License**. The models keep their own licenses, which also apply to the NF4 versions and to the LoRAs you train — check them before using or sharing results:
+The code is released under the **MIT License**. The models keep their own licenses, which also apply to the NF4 versions and to the LoRAs you train — check them before using or sharing results. **Fibo 2.0 is CC BY-NC 4.0: non-commercial use only** (commercial use needs an agreement with BRIA):
 
 | Model | License |
 | :--- | :--- |

@@ -1115,5 +1115,15 @@
   "The model the LoRA is trained on, and the one to use it with in ComfyUI. Qwen-Image-2512 generates from text; Qwen-Image-Edit-2511 edits an image. They are separate fine-tunes of Qwen-Image, so a LoRA trained on one is not guaranteed to work on the other. An edit LoRA (before / after pairs) always uses Edit-2511.": "LoRA를 학습할 모델이자 ComfyUI에서 함께 사용할 모델입니다. Qwen-Image-2512는 텍스트로 생성하고, Qwen-Image-Edit-2511은 이미지를 편집합니다. 둘은 Qwen-Image의 별도 파인튜닝이므로 한쪽에서 학습한 LoRA가 다른 쪽에서 작동한다는 보장은 없습니다. 편집 LoRA(전 / 후 쌍)는 항상 Edit-2511을 사용합니다.",
   "Writes one .txt per image with Qwen3-VL-8B (NF4, ~5.5 GB VRAM), with the trigger word first. It is shared by every trainer: ~5 GB are downloaded only the first time.": "Qwen3-VL-8B(NF4, VRAM 약 5.5GB)로 이미지마다 .txt를 하나씩 쓰고 트리거 단어를 맨 앞에 둡니다. 모든 트레이너가 공유하며 약 5GB를 처음 한 번만 다운로드합니다.",
   "The cache has before/after pairs: an edit LoRA needs Qwen-Image-Edit-2511 as the base model.": "캐시에 전/후 쌍이 있습니다. 편집 LoRA에는 기본 모델로 Qwen-Image-Edit-2511이 필요합니다.",
-  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "저장된 체크포인트가 이 LoRA 설정(rank, LoKr 등)과 맞지 않습니다. 새 학습을 시작합니다."
+  "The saved checkpoint does not match these LoRA settings (rank, LoKr...); starting a new training.": "저장된 체크포인트가 이 LoRA 설정(rank, LoKr 등)과 맞지 않습니다. 새 학습을 시작합니다.",
+  "Text Encoder (Qwen3-VL-4B)": "텍스트 인코더 (Qwen3-VL-4B)",
+  "🚀 Fast Previews (fewer steps, no CFG)": "🚀 빠른 미리보기(단계 감소, CFG 없음)",
+  "Fast steps": "빠른 단계 수",
+  "Blocks: attention + MLP": "블록: 어텐션 + MLP",
+  "All linear layers (BRIA recipe)": "모든 선형 레이어 (BRIA 레시피)",
+  "Writes one .txt per image with Qwen3-VL-4B, the text encoder of Fibo 2.0 itself (NF4, ~2.7 GB VRAM), with the trigger word first. No extra download.": "Qwen3-VL-4B(Fibo 2.0의 text encoder 자체, NF4, VRAM 약 2.7GB)로 이미지마다 .txt를 작성하며 트리거 단어를 맨 앞에 둡니다. 추가 다운로드 없음.",
+  "Blocks trains attention and MLP of the 44 blocks: enough for characters, objects and styles. All also trains the perceptor that turns the caption into gist tokens, the modulation of every block and the input/output layers: that is the recipe BRIA used for Fibo 2.0, it gives the most control and it is heavier.": "Blocks는 44개 블록의 어텐션과 MLP를 학습합니다(캐릭터, 물체, 스타일 충분). All은 caption을 gist 토큰으로 바꾸는 perceiver, 각 블록의 변조, 입출력 레이어도 학습합니다: BRIA가 Fibo 2.0에 사용한 레시피로 가장 세밀한 제어가 가능하지만 더 무겁습니다.",
+  "Preview Size:": "미리보기 크기:",
+  "The LoKr cannot be written in ComfyUI's fused layers: {n} layers are left out.": "LoKr은 ComfyUI의 융합 레이어에 쓸 수 없습니다: {n}개 레이어가 빠집니다.",
+  "{n} layers could not be mapped to ComfyUI.": "{n}개 레이어를 ComfyUI에 대응시킬 수 없습니다."
 }
