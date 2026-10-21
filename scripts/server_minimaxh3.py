@@ -525,7 +525,7 @@ def save_train():
         data["output_dir"] = f"./Outputs/{output_dir_name}"
         # Lo que había antes: con el entrenamiento en marcha, la GUI avisa solo de lo que ha cambiado.
         previous = read_json_file(TRAIN_CONFIG, {})
-        write_json_file(TRAIN_CONFIG, data)
+        write_json_file(TRAIN_CONFIG, {**read_json_file(TRAIN_CONFIG, {}), **data})
         saved_files = [TRAIN_CONFIG.name]
         if proj:
             output_dir_path = resolve_config_path(data["output_dir"], output_dir_name)
