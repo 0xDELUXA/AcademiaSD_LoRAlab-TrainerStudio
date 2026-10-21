@@ -43,12 +43,27 @@
             border: 1px solid var(--panel-border);
             border-radius: 16px;
             color: inherit; cursor: pointer;
+            max-width: 100%;
             transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         }
         .card img {
             display: block; border-radius: 10px;
+            width: var(--img-w, 240px);   /* el JS lo pone al tamaño real de la portada */
+            max-width: 100%;              /* en un movil nunca desborda */
+            height: auto;
             filter: brightness(0.82) saturate(0.95);
             transition: filter 0.2s ease;
+        }
+
+        /* Telefonos y tablets: tarjetas mas pequenas y mas juntas, varias por fila.
+           Phones and tablets: smaller, tighter cards, several per row. */
+        @media (max-width: 760px) {
+            .grid { gap: 16px; }
+            .row { gap: 14px; }
+            .card { padding: 12px 12px 10px; gap: 8px; }
+            .card img { width: min(var(--img-w, 240px), 44vw); }
+            .card .name { font-size: 0.95rem; }
+            .card .desc { font-size: 0.72rem; max-width: 180px; }
         }
         .card:hover, .card:focus-visible {
             outline: none;
@@ -186,11 +201,14 @@
     </div>
 
     <script>
-        // Filas: hasta 3 entrenadores en una fila; con más, dos filas y la de arriba con el sobrante
-        // (4 -> 2+2, 5 -> 3+2, 6 -> 3+3, 7 -> 4+3). "rows" en launcher.json fija el número a mano.
+        // Reparto de las tarjetas: se calcula cuantas caben en una fila con el ancho que hay
+        // y se equilibran las filas, para que no quede ninguna tarjeta suelta en medio.
+        // El reparto se recalcula al cambiar el tamano de la ventana, asi que el movil, la
+        // tablet y el escritorio reciben cada uno el que les toca.
+        // "rows" en launcher.json fija el numero de filas a mano; "auto" lo calcula.
         function splitRows(items, rows) {
             const n = items.length;
-            const count = rows === 'auto' || !rows ? (n <= 3 ? 1 : 2) : Math.max(1, parseInt(rows));
+            const count = Math.max(1, parseInt(rows) || 1);
             const out = [];
             let start = 0;
             for (let r = 0; r < count; r++) {
@@ -200,6 +218,97 @@
             }
             return out.filter(row => row.length);
         }
+
+        // Ancho util de la pagina y separacion entre tarjetas / usable width and card gap
+        function availableWidth() {
+            const cs = getComputedStyle(document.body);
+            return document.body.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+        }
+        function rowGap() {
+            const row = document.querySelector('.row');
+            return row ? (parseFloat(getComputedStyle(row).columnGap) || 28) : 28;
+        }
+
+        // Tamano real de cada portada, para no tener que volver a cargarla al repintar
+        const portadaSizes = {};
+        let pendingImages = 0;
+        let generation = 0;
+
+        function buildCard(tr, scale, gen) {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'card';
+            card.dataset.id = tr.id;
+            card.dataset.desc = tr.description || '';
+            card.title = `${tr.name}: ${tr.run}`;
+            const img = document.createElement('img');
+            img.alt = tr.name;
+            // El tamaño sale de la imagen real: image_scale = 0.2 es el 20 % de su tamaño.
+            if (portadaSizes[tr.image]) card.style.setProperty('--img-w', portadaSizes[tr.image]);
+            img.onload = () => {
+                if (gen !== generation) return;      // repintado anterior: su tarjeta ya no existe
+                portadaSizes[tr.image] = Math.round(img.naturalWidth * scale) + 'px';
+                card.style.setProperty('--img-w', portadaSizes[tr.image]);
+                imageReady();
+            };
+            img.onerror = () => { if (gen === generation) imageReady(); };
+            img.src = '/' + tr.image;
+            const name = document.createElement('div');
+            name.className = 'name';
+            name.innerText = tr.name;
+            const desc = document.createElement('div');
+            desc.className = 'desc';
+            card.append(img, name, desc);
+            card.onclick = () => launch(tr, card);
+            return card;
+        }
+
+        function imageReady() {
+            if (--pendingImages <= 0) { pendingImages = 0; relayout(); }
+        }
+
+        // Pinta las tarjetas en las filas indicadas / paints the cards in the given rows
+        function paint(rows, scale) {
+            const grid = document.getElementById('grid');
+            const gen = ++generation;
+            grid.innerHTML = '';
+            pendingImages = cfg.trainers.length;
+            for (const rowItems of splitRows(cfg.trainers, rows)) {
+                const row = document.createElement('div');
+                row.className = 'row';
+                for (const tr of rowItems) row.appendChild(buildCard(tr, scale, gen));
+                grid.appendChild(row);
+            }
+            renderTexts();
+            updateGlow();
+            // Comprobacion de seguridad: si alguna portada no avisa, el reparto se hace igual.
+            requestAnimationFrame(() => relayout());
+            setTimeout(() => relayout(), 600);
+        }
+
+        // Cuantas tarjetas caben por fila y cuantas filas hacen falta / columns and rows
+        function relayout() {
+            const grid = document.getElementById('grid');
+            const cards = grid.querySelectorAll('.card');
+            if (!cards.length) return;
+            let maxW = 0;
+            for (const c of cards) maxW = Math.max(maxW, c.offsetWidth);
+            if (!maxW) return;
+            const gap = rowGap();
+            const cols = Math.max(1, Math.floor((availableWidth() + gap) / (maxW + gap)));
+            const auto = (cfg.rows === 'auto' || !cfg.rows);
+            const rows = auto ? Math.ceil(cfg.trainers.length / cols)
+                              : Math.max(1, parseInt(cfg.rows) || 1);
+            if (grid.dataset.rows === String(rows)) return;
+            grid.dataset.rows = String(rows);
+            paint(rows, parseFloat(cfg.image_scale) || 0.2);
+        }
+
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(relayout, 150);
+        });
 
         function setStatus(html, cls) {
             const el = document.getElementById('status');
@@ -379,32 +488,8 @@
             const scale = parseFloat(cfg.image_scale) || 0.2;
 
             const grid = document.getElementById('grid');
-            for (const rowItems of splitRows(cfg.trainers, cfg.rows)) {
-                const row = document.createElement('div');
-                row.className = 'row';
-                for (const tr of rowItems) {
-                    const card = document.createElement('button');
-                    card.type = 'button';
-                    card.className = 'card';
-                    card.dataset.id = tr.id;
-                    card.dataset.desc = tr.description || '';
-                    card.title = `${tr.name}: ${tr.run}`;
-                    const img = document.createElement('img');
-                    img.alt = tr.name;
-                    // El tamaño sale de la imagen real: image_scale = 0.2 es el 20 % de su tamaño.
-                    img.onload = () => { img.width = Math.round(img.naturalWidth * scale); };
-                    img.src = '/' + tr.image;
-                    const name = document.createElement('div');
-                    name.className = 'name';
-                    name.innerText = tr.name;
-                    const desc = document.createElement('div');
-                    desc.className = 'desc';
-                    card.append(img, name, desc);
-                    card.onclick = () => launch(tr, card);
-                    row.appendChild(card);
-                }
-                grid.appendChild(row);
-            }
+            // Un reparto inicial; en cuanto las portadas han cargado se calcula el definitivo.
+            paint(2, scale);
             renderTexts();
             updateGlow();
             setInterval(updateGlow, 2000);
