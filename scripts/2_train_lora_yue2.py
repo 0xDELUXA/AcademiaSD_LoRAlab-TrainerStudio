@@ -125,7 +125,9 @@ DEFAULTS = {
     "max_grad_norm": 1.0,
     "save_every": 50,
     "seed": 42,
-    "timestep_sampling": "uniform",   # uniform | logit_normal (t del flow matching)
+    "timestep_sampling": "logit_normal",  # uniform | logit_normal (t del flow matching)
+    "regularizer": True,            # mezcla el minted pack en la etapa AR
+    "regularizer_ratio": 0.5,       # proporcion de pasos AR con cancion minted
     "preview_every": 0,          # 0 = sin previews de audio (cada N pasos)
     "preview_caption_mode": "first",
     "preview_ode_steps": 16,     # el release usa 32; 16 para previews rápidas
@@ -177,6 +179,8 @@ MAX_GRAD_NORM    = float(_g("max_grad_norm"))
 SAVE_EVERY       = int(_g("save_every"))
 SEED             = int(_g("seed"))
 T_SAMPLING       = str(_g("timestep_sampling"))
+REGULARIZER_ON   = bool(_g("regularizer"))
+REGULARIZER_RATIO = float(_g("regularizer_ratio"))
 PREVIEW_EVERY    = int(_g("preview_every"))
 PREVIEW_CAPTION_MODE = str(_g("preview_caption_mode")).strip().lower()
 if PREVIEW_CAPTION_MODE not in ("first", "random", "rotate4", "custom"):
@@ -706,6 +710,7 @@ def ar_loss_step(model, base_ids, codes):
 
 SAMPLES = {}
 META = {}
+REGULARIZER = None
 
 
 def load_cache():
@@ -1147,7 +1152,11 @@ def train_stage(stage, base):
                 context = info["base_ids"] + [c + CODEC_OFFSET for c in info["codes"]] + [MUSIC_END]
                 loss = nar_loss_step(model, x0, sample_t(), context)
             else:
-                loss = ar_loss_step(model, info["base_ids"], info["codes"])
+                if REGULARIZER is not None and random.random() < REGULARIZER_RATIO:
+                    reg_ids, reg_codes = REGULARIZER.sample()
+                    loss = ar_loss_step(model, reg_ids, reg_codes)
+                else:
+                    loss = ar_loss_step(model, info["base_ids"], info["codes"])
 
             (loss / GRAD_ACCUM_STEPS).backward()
             running_loss += loss.item()
@@ -1210,6 +1219,27 @@ def main():
 
     load_cache()
     TOKENIZER = YuE2TextTokenizer.from_pretrained(MODEL_DIR)
+
+    # El regularizador del AR: canciones "minted" de la comunidad para que un set
+    # pequeno no colapse la gramatica de tokens. Solo lo usa la etapa AR.
+    global REGULARIZER
+    REGULARIZER = None
+    if REGULARIZER_ON and "ar" in STAGES_TO_RUN:
+        from yue2 import regularizer as yue2_regularizer
+        path = str(META.get("regularizer_path") or "") or yue2_regularizer.pack_path(STUDIO_ROOT)
+        if not os.path.isfile(path):
+            print("  [!] " + t("Regularizer pack not found: {path}. Run Pre-Cache to download it.",
+                            path=path))
+        else:
+            # La longitud se acota a la de los clips del artista: los logits del AR son
+            # [n_codigos, 184704] y una cancion de 4 minutos se va de la VRAM.
+            largos = [len(s.get("codes", [])) for s in SAMPLES.values()]
+            max_codes = (max(largos) + 255) // 256 * 256 if largos else 0
+            REGULARIZER = yue2_regularizer.Regularizer(
+                path, TOKENIZER, cot=str(META.get("cot", "off")),
+                max_codes=max_codes)
+            print(f"  {t('Regularizer')}: {len(REGULARIZER)} canciones minted, "
+                  f"{REGULARIZER_RATIO*100:.0f}% de los pasos AR")
 
     # 'both' recarga el modelo por etapa: PEFT envuelve los Linear del propio
     # objeto base; partir de pesos frescos evita mezclas de adapters.

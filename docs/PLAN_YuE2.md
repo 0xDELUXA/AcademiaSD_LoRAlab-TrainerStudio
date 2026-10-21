@@ -417,3 +417,72 @@ Grep: **cero apariciones** de "lora" en `yue2_infer-0.1.5`. El `load_lora` que c
 
 - `synthesize(model, prefix, codec, seed, steps=32, offload_ar=…)`: mueve `embed_tokens`, `lm_head` **y TODOS los módulos AR** de cada capa a CPU durante el ODE NAR — es exactamente la rutina de bajo VRAM para previews.
 - Preview del trainer: con la letra/estilo del dataset (o prompt custom), `cot="melody"` (o `off` para clips cortos), `steps` configurable (menos de 32 para rapidez), seed fija, clip corto.
+
+---
+
+# Fase 8 — Por qué el LoRA del 19/10 no clonaba el timbre (y qué se cambió)
+
+## El diagnóstico
+
+El LoRA de 4.200 pasos del 19/10 se entrenó con una versión del trainer que
+**condicionaba el NAR solo con el prefijo de texto**: los códigos semánticos
+reales (MERT-v2 + head) no existían todavía en la caché, y la fase 3 del
+pre-cache (códigos reales) se añadió después, junto con el aviso que hoy impide
+entrenar sin ellos.
+
+El NAR es un **decodificador**: recibe códigos y produce audio. La voz vive en
+los códigos. Si el NAR se entrena sin ellos, el LoRA no tiene dónde aprender el
+timbre (la entrada ya no lo lleva) y en la preview y en ComfyUI el NAR sí los
+recibe → el LoRA se aplica sobre una entrada que nunca vio. De ahí el síntoma
+exactamente descrito en el run del 19/10: *"el estilo de música se parece, la
+voz del cantante le falta"*.
+
+Con la caché regenerada (91/91 ficheros `_realcodes_*.pt`, la fase 3 del
+pre-cache) y el NAR condicionando con `prefijo + códigos + MUSIC_END` —igual
+que el protocolo publicado del wheel y que el AI Toolkit— el LoRA sí ve la voz
+en los datos y puede aprenderla.
+
+## Lo que se cambió en esta fase
+
+1. **El NAR se condiciona con los códigos reales** (ya estaba en el código, pero
+   la caché del 19/10 no los tenía: hay que volver a lanzar el pre-cache).
+2. **Regularizador del AR (el "minted pack" de la comunidad)**: con un set
+   pequeño el AR puede colapsar la gramática de tokens de YuE2. Se descarga
+   `Mothersuperior/yue2-minted-corpus` (4.732 canciones generadas por YuE2,
+   97 MB) y la etapa AR mezcla un 50 % de ellas con las del artista
+   (`regularizer` + `regularizer_ratio` en los ajustes). Es lo que hace la
+   comunidad: *"the AR trainer draws 50% of its songs from it so a small artist
+   set cannot collapse YuE2's token grammar"*.
+3. **El guardado de los ajustes ya no pisa las opciones**: el servidor
+   reescribía el JSON entero con lo que mandaba la GUI, así que
+   `timestep_sampling`, `max_grad_norm`, `weight_decay` o `min_lr_ratio`
+   se perdían en cada guardado. Ahora fusiona (igual que ya hacía Fibo 2.0).
+   **Arrreglado en los 17 servidores.**
+4. **`timestep_sampling` = `logit_normal`** por defecto en el NAR (es lo que
+   usa la referencia; antes era `uniform`), y la opción está en la GUI.
+5. **La etapa por defecto** sigue siendo NAR, pero la GUI explica qué hace
+   cada una: NAR = voz, timbre y producción; AR = letra y fraseo.
+
+## La receta de la comunidad para un LoRA de artista (para comparar)
+
+- LoRA **de la AR** (rank 64, lr 1e-4, 1.600 pasos como máximo: *"do not train
+  longer, past ~1,500 steps the model memorises the songs"*), con el
+  regularizer pack al 50 % y el *lyric cursor* (Demucs + MMS forced alignment,
+  peso 0.08) para que el modelo sepa **cuándo** se canta cada línea.
+- El LoRA **de la NAR** de la comunidad (`nar_lora_joint_v4/v5/v8/v9`) no es un
+  clonador de voz: es un **adaptador del decodificador** para que renderice bien
+  los códigos del head de la comunidad (`tokenizer_head_v5_30k` es el único
+  entrenado contra el decodificador base, así que no necesita adaptador NAR).
+- En la inferencia se aplican **los dos**: el LoRA de la AR en el lado del CLIP
+  y el de la NAR en el del modelo.
+- Para el sonido: el VAE merge `Mothersuperior/YuE2-Vae-merge-0.666`.
+
+## Verificado en esta fase
+
+- Pre-cache con la fase 3: 13 temas, 91 clips con sus códigos reales ✓.
+- Entrenamiento NAR + AR (40 pasos cada uno) con la mezcla del regularizador:
+  NAR 1,31 -> 1,07; 91 muestras; 31 piezas minted tras acotar la longitud a la
+  de los clips; LoRA de las dos etapas y previews de audio generados ✓.
+- El VAE está bien: el roundtrip de un latente cacheado da RMS 1,03 respecto al
+  audio original (la correlación de forma de onda ~0,74 es normal en audio; la
+  comunidad mide ~95 % de oído).

@@ -98,6 +98,7 @@ DEFAULTS = {
     "style_prompt": "",
     "cot": "off",            # off | melody | full
     "force_gpu": True,       # el encoder del VAE corre en CUDA
+    "regularizer": True,      # descarga el minted pack (mezcla para el AR)
 }
 
 AUDIO_EXTS = (".wav", ".flac", ".mp3", ".ogg", ".m4a", ".opus", ".wma", ".aiff", ".aif", ".mp2")
@@ -165,6 +166,21 @@ def ensure_yue2_model():
         TOKENIZER = YuE2TextTokenizer.from_pretrained(MODEL_DIR)
     print(f"[OK] YuE2 {MODEL_PRECISION.upper()} disponible en {MODEL_DIR}", flush=True)
 
+    # El regularizador del AR (canciones minted de la comunidad): con un set pequeno
+    # el AR puede colapsar la gramatica de tokens.
+    global REGULARIZER_PATH
+    REGULARIZER_PATH = ""
+    if REGULARIZER_ENABLED:
+        from yue2 import regularizer as yue2_regularizer
+        path = yue2_regularizer.pack_path(STUDIO_ROOT)
+        if not os.path.isfile(path):
+            print(f"[DOWNLOAD] YuE2 regularizer (minted pack) desde Hugging Face: "
+                  f"{yue2_regularizer.PACK_REPO}", flush=True)
+            path = yue2_regularizer.download_pack(STUDIO_ROOT, token=token)
+        else:
+            print(f"[OK] Reutilizando YuE2 regularizer local: {path}", flush=True)
+        REGULARIZER_PATH = path
+
 
 cfg = dict(DEFAULTS)
 if os.path.exists(CONFIG_PATH):
@@ -175,6 +191,8 @@ PROJECT_NAME = str(cfg["project_name"]).strip()
 STYLE_PROMPT = str(cfg["style_prompt"]).strip()
 COT = str(cfg["cot"]).strip().lower()
 FORCE_GPU = bool(cfg.get("force_gpu", True))
+REGULARIZER_ENABLED = bool(cfg.get("regularizer", True))
+REGULARIZER_PATH = ""
 if COT not in ("off", "melody", "full"):
     print("[!] " + t("Unknown cot '{c}': must be off, melody or full. Using off.", c=COT))
     COT = "off"
@@ -464,7 +482,8 @@ def escribir_meta():
     meta = {"cache_format_version": CACHE_FORMAT_VERSION, "protocol": "yue2-native-v1",
             "cot": COT, "style_prompt": STYLE_PROMPT, "sample_rate": SR,
             "downsampling_ratio": DOWNSAMPLING_RATIO, "latent_dim": LATENT_DIM,
-            "instruction": INSTRUCTIONS[COT]}
+            "instruction": INSTRUCTIONS[COT],
+            "regularizer_path": REGULARIZER_PATH}
     with open(os.path.join(CACHE_DIR, "_meta.tmp"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2, ensure_ascii=False)
     os.replace(os.path.join(CACHE_DIR, "_meta.tmp"), os.path.join(CACHE_DIR, "_meta.json"))

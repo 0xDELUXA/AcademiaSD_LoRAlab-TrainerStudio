@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
+r"""
 0b_transcribe_yue2.py - Transcribe cada clip con Whisper y escribe la letra REAL en su .txt
 0b_transcribe_yue2.py - Transcribes each clip with Whisper and writes the ACTUAL lyrics into its .txt
 
