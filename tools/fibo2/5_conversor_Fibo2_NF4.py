@@ -576,6 +576,11 @@ def main():
     print("CONVERSIÓN COMPLETADA")
     print("=" * 70)
     print("Tiempo:", f"{elapsed / 60:.1f} minutos")
+    # La tarjeta de Hugging Face del modelo NF4 (no la del modelo original de BRIA).
+    card = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README_HF_Fibo2.md")
+    if os.path.exists(card):
+        shutil.copy2(card, os.path.join(OUTPUT_DIR, "README.md"))
+
     print()
     print("Carpeta NF4:")
     print(os.path.abspath(OUTPUT_DIR))
