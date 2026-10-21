@@ -284,14 +284,17 @@ def make_img_mask(sample, H, W, device):
 
 def model_inputs(sample, latents, H, W, device):
     """
-    Secuencia de imagen del transformer: en edición el antes va delante, LIMPIO (sin ruido),
-    y el objetivo detrás; img_shapes y la máscara siguen ese orden. La predicción es siempre
-    la del objetivo: los últimos H*W tokens.
+    Secuencia de imagen del transformer: en edición las referencias van delante, LIMPIAS (sin
+    ruido), y el objetivo detrás; img_shapes y la máscara siguen ese orden. La predicción es
+    siempre la del objetivo: los últimos H*W tokens. La preview puede llevar varias referencias
+    (<image1>, <image2>...); el entrenamiento normal solo una.
     """
-    if "ctrl" in sample:
-        ctrl = sample["ctrl"].to(device, non_blocking=True)
-        hidden = torch.cat([pack_latents(ctrl).expand(latents.shape[0], -1, -1), latents], dim=1)
-        shapes = [(1, ctrl.shape[2], ctrl.shape[3]), (1, H, W)]
+    ctrls = sample.get("ctrls") or ([sample["ctrl"]] if "ctrl" in sample else [])
+    if ctrls:
+        ctrls = [c.to(device, non_blocking=True) for c in ctrls]
+        hidden = torch.cat([pack_latents(c).expand(latents.shape[0], -1, -1).to(latents.dtype) for c in ctrls]
+                           + [latents], dim=1)
+        shapes = [(1, c.shape[2], c.shape[3]) for c in ctrls] + [(1, H, W)]
     else:
         hidden, shapes = latents, [(1, H, W)]
     return hidden, [shapes] * latents.shape[0], make_img_mask(sample, H, W, device).expand(latents.shape[0], -1)
@@ -857,7 +860,8 @@ def train_qwen_image21():
 
     def load_sample(nombre):
         # lat: objetivo (en _custom no existe: solo aporta el tamaño). En edición además
-        # ctrl (latente del antes) e imgmask (huecos del antes en el texto).
+        # ctrl (latente de <image1>) e imgmask (huecos de las referencias en el texto).
+        # ctrls = varias referencias: <image2> se guarda como <nombre>_ctrl_2.pt, etc.
         sample = {}
         for key, suffix, cast in (("lat", "latent", torch.bfloat16), ("emb", "embed", torch.bfloat16),
                                   ("msk", "mask", torch.bool), ("ctrl", "ctrl", torch.bfloat16),
@@ -866,6 +870,15 @@ def train_qwen_image21():
             if os.path.exists(path):
                 t = torch.load(path, weights_only=True).to(cast)
                 sample[key] = t.pin_memory() if pin else t
+        if "ctrl" in sample:
+            ctrls = [sample["ctrl"]]
+            index = 2
+            while os.path.exists(f"{CACHE_DIR}/{nombre}_ctrl_{index}.pt"):
+                extra = torch.load(f"{CACHE_DIR}/{nombre}_ctrl_{index}.pt", weights_only=True).to(torch.bfloat16)
+                ctrls.append(extra.pin_memory() if pin else extra)
+                index += 1
+            if len(ctrls) > 1:
+                sample["ctrls"] = ctrls
         return sample
 
     for f in os.listdir(CACHE_DIR):
@@ -946,6 +959,7 @@ def train_qwen_image21():
             # img_mask para todo el batch: vale porque la imagen va antes de la instrucción, así que en
             # un mismo bucket las ranuras del antes caen en las mismas posiciones en todos los pares.
             batch = {**cache_data[names[0]], "emb": embeds}
+            batch.pop("ctrls", None)
             if edit_mode:
                 batch["ctrl"] = torch.cat([cache_data[n]["ctrl"] for n in names])
             hidden, shapes, img_mask = model_inputs(batch, noisy, H, W, "cuda")

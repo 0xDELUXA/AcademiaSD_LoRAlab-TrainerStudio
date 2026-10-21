@@ -1140,5 +1140,15 @@
   "The dataset has name_before / name_after pairs: set LoRA Type to Edit to train editing instead of text-to-image.": "O dataset tem pares nome_before / nome_after: põe o Tipo de LoRA em Edição para treinar edição em vez de texto para imagem.",
   "The official image-edit task works at 1024: smaller buckets train faster but are out of its distribution.": "A tarefa image-edit oficial trabalha a 1024: buckets mais pequenos treinam mais depressa mas estão fora da sua distribuição.",
   "{n} pairs without an instruction in name.txt (only the trigger is used): {names}": "{n} pares sem instrução em nome.txt (só se usa o trigger): {names}",
-  "one edit instruction per pair (name.txt)": "uma instrução de edição por par (nome.txt)"
+  "one edit instruction per pair (name.txt)": "uma instrução de edição por par (nome.txt)",
+  "Text Encoder (Qwen3-VL-4B)": "Codificador de texto (Qwen3-VL-4B)",
+  "🚀 Fast Previews (fewer steps, no CFG)": "🚀 Pré-visualizações rápidas (menos passos, sem CFG)",
+  "Fast steps": "Passos rápidos",
+  "Blocks: attention + MLP": "Blocos: atenção + MLP",
+  "All linear layers (BRIA recipe)": "Todas as camadas lineares (receita BRIA)",
+  "Writes one .txt per image with Qwen3-VL-4B, the text encoder of Fibo 2.0 itself (NF4, ~2.7 GB VRAM), with the trigger word first. No extra download.": "Escreve um .txt por imagem com Qwen3-VL-4B, o próprio codificador de texto do Fibo 2.0 (NF4, ~2,7 GB de VRAM), com a palavra-chave primeiro. Sem transferências extra.",
+  "Blocks trains attention and MLP of the 44 blocks: enough for characters, objects and styles. All also trains the perceptor that turns the caption into gist tokens, the modulation of every block and the input/output layers: that is the recipe BRIA used for Fibo 2.0, it gives the most control and it is heavier.": "Blocks treina a atenção e o MLP dos 44 blocos: suficiente para personagens, objetos e estilos. All treina também o perceiver que transforma o caption em tokens gist, a modulação de cada bloco e as camadas de entrada e saída: é a receita usada pela BRIA no Fibo 2.0, dá o máximo controlo e é mais pesado.",
+  "Preview Size:": "Tamanho da pré-visualização:",
+  "The LoKr cannot be written in ComfyUI's fused layers: {n} layers are left out.": "O LoKr não pode ser escrito nas camadas fundidas do ComfyUI: {n} camadas ficam de fora.",
+  "{n} layers could not be mapped to ComfyUI.": "Não foi possível mapear {n} camadas para o ComfyUI."
 }

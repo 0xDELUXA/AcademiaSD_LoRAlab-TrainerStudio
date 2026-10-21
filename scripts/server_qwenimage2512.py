@@ -87,7 +87,8 @@ UI_FILE = BASE_DIR / "GUI" / "trainer_ui_qwenimage2512.html"
 LOGO_FILE = ASSETS_DIR / "logo.png" if (ASSETS_DIR / "logo.png").exists() else BASE_DIR / "logo.png"
 
 PRECACHE_CONFIG = SETTINGS_DIR / "pre_cache_settings_qwenimage2512.json"
-PREVIEW_KEYS = ("lora_type", "preview_custom_prompt", "preview_edit_image")
+PREVIEW_KEYS = ("lora_type", "preview_custom_prompt", "preview_edit_image", "preview_edit_images")
+PREVIEW_MAX = 4
 TRAIN_CONFIG = SETTINGS_DIR / "train_settings_qwenimage2512.json"
 HF_TOKEN_CONFIG = SETTINGS_DIR / "HF_token.json"
 EXPORT_CONFIG = SETTINGS_DIR / "export_settings.json"  # compartido / shared by every trainer
@@ -144,6 +145,27 @@ def write_json_file(path, data):
         json.dump(data, f, indent=2, ensure_ascii=False)
         f.write("\n")
     os.replace(temp_path, path)
+
+
+def preview_images_from(data):
+    value = data.get("preview_edit_images")
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, (list, tuple)):
+        value = []
+    images = [str(p).strip() for p in value if str(p).strip()]
+    if not images:
+        single = data.get("preview_edit_image")
+        if isinstance(single, str) and single.strip():
+            images = [single.strip()]
+    return images[:PREVIEW_MAX]
+
+
+def normalize_preview_images(data):
+    images = preview_images_from(data)
+    data["preview_edit_images"] = images
+    data["preview_edit_image"] = images[0] if images else ""
+    return images
 
 
 def resolve_config_path(value, default):
@@ -441,7 +463,7 @@ def export_lora():
 
         custom_name = file_transfer.with_lora_options_suffix(custom_name, source_file)
         dest_file = target_dir / custom_name
-        shutil.copy2(source_file, dest_file)
+        shutil.copyfile(source_file, dest_file)
 
         return jsonify({
             "status": "ok",
@@ -502,6 +524,7 @@ def save_precache():
         data = request.get_json(force=True)
         if not isinstance(data, dict):
             return jsonify({"status": "error", "error": t("JSON object required.")}), 400
+        normalize_preview_images(data)
         
         proj = data.get("project_name", "").strip()
         cache_dir_name = f"cached_data_qwenimage2512_{proj}" if proj else "cached_data_qwenimage2512"
@@ -551,11 +574,12 @@ def encoding_stage():
     return prompt_job["stage"] if process is not None and process.poll() is None else None
 
 
-def encode_preview_prompt(cache_dir, prompt, image):
+def encode_preview_prompt(cache_dir, prompt, images):
     # Un solo proceso a la vez: si se guarda otro prompt mientras codifica, gana el último.
     # En GPU si está libre; con el entrenamiento en marcha, en CPU para no tocar su VRAM.
     device = "cpu" if get_status()["script"] == "train" else "cuda"
-    args = [sys.executable, "-u", str(PRECACHE_SCRIPT), "--prompt-only", str(cache_dir), prompt, image, device]
+    args = [sys.executable, "-u", str(PRECACHE_SCRIPT), "--prompt-only", str(cache_dir), prompt,
+            json.dumps(images, ensure_ascii=False), device]
     if encoding_stage() is not None:
         if prompt_job["args"] == args:
             return
@@ -585,6 +609,7 @@ def save_train():
         data = request.get_json(force=True)
         if not isinstance(data, dict):
             return jsonify({"status": "error", "error": t("JSON object required.")}), 400
+        preview_images = normalize_preview_images(data)
         
         proj = data.get("project_name", "").strip()
         cache_dir_name = f"cached_data_qwenimage2512_{proj}" if proj else "cached_data_qwenimage2512"
@@ -611,12 +636,12 @@ def save_train():
         trigger = data.get("trigger_word", "").strip()
         if trigger and prompt and trigger.lower() not in prompt.lower():
             prompt = f"{trigger}, {prompt}"
-        wanted = [prompt, data.get("preview_edit_image", "").strip() if data.get("lora_type") == "edit" else ""]
+        wanted = [prompt, "\n".join(preview_images) if data.get("lora_type") == "edit" else ""]
         cache_dir = resolve_config_path(data["cache_dir"], cache_dir_name)
         encoded = [(cache_dir / f).read_text(encoding="utf-8") if (cache_dir / f).exists() else None
                    for f in ("_custom_prompt.txt", "_custom_image.txt")]
         if prompt and wanted != encoded and (cache_dir / "_neg_embed.pt").exists() and get_status()["script"] != "precache":
-            encode_preview_prompt(cache_dir, *wanted)
+            encode_preview_prompt(cache_dir, wanted[0], preview_images if data.get("lora_type") == "edit" else [])
         saved_files = [TRAIN_CONFIG.name]
 
         # 2. Guardar copia dentro de la carpeta del proyecto

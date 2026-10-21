@@ -116,7 +116,7 @@
 
         .form-group { margin-bottom: 12px; }
         .form-group label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; font-weight: 500; }
-        .form-group input, .form-group select, .form-group textarea { width: 100%; background: #0f172a; border: 1px solid var(--panel-border); color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; outline: none; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; background: #0f172a; border: 1px solid var(--panel-border); color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; outline: none; resize: vertical; }
         .form-group input[readonly] { background: #1a2332; color: #94a3b8; cursor: not-allowed; border-style: dashed; }
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -1682,9 +1682,10 @@
         let captionModeShown = 'normal';
 
         function switchCaptionMode() {
+            // Primero se guarda lo escrito en el cuadro; si no, se perdía al pulsar Create Captions.
+            captionPrompts.normal = document.getElementById('caption_prompt_text').value;
             captionModeShown = 'normal';
             document.getElementById('caption_mode').value = 'normal';
-            document.getElementById('caption_prompt_text').value = captionPrompts.normal;
         }
 
         async function loadCaptionSettings() {

@@ -1140,5 +1140,15 @@
   "The dataset has name_before / name_after pairs: set LoRA Type to Edit to train editing instead of text-to-image.": "Der Datensatz hat Paare name_before / name_after: stelle den LoRA-Typ auf Bearbeitung, um Bearbeitung statt Text-zu-Bild zu trainieren.",
   "The official image-edit task works at 1024: smaller buckets train faster but are out of its distribution.": "Die offizielle image-edit-Aufgabe arbeitet mit 1024: kleinere Buckets trainieren schneller, liegen aber außerhalb ihrer Verteilung.",
   "{n} pairs without an instruction in name.txt (only the trigger is used): {names}": "{n} Paare ohne Anweisung in name.txt (nur der Trigger wird verwendet): {names}",
-  "one edit instruction per pair (name.txt)": "eine Bearbeitungsanweisung pro Paar (name.txt)"
+  "one edit instruction per pair (name.txt)": "eine Bearbeitungsanweisung pro Paar (name.txt)",
+  "Text Encoder (Qwen3-VL-4B)": "Text Encoder (Qwen3-VL-4B)",
+  "🚀 Fast Previews (fewer steps, no CFG)": "🚀 Schnelle Vorschauen (weniger Schritte, ohne CFG)",
+  "Fast steps": "Schnelle Schritte",
+  "Blocks: attention + MLP": "Blöcke: Attention + MLP",
+  "All linear layers (BRIA recipe)": "Alle linearen Schichten (BRIA-Rezept)",
+  "Writes one .txt per image with Qwen3-VL-4B, the text encoder of Fibo 2.0 itself (NF4, ~2.7 GB VRAM), with the trigger word first. No extra download.": "Schreibt eine .txt pro Bild mit Qwen3-VL-4B, dem Text-Encoder von Fibo 2.0 selbst (NF4, ~2,7 GB VRAM), mit dem Trigger-Wort zuerst. Kein zusätzlicher Download.",
+  "Blocks trains attention and MLP of the 44 blocks: enough for characters, objects and styles. All also trains the perceptor that turns the caption into gist tokens, the modulation of every block and the input/output layers: that is the recipe BRIA used for Fibo 2.0, it gives the most control and it is heavier.": "Blocks trainiert Attention und MLP der 44 Blöcke: genug für Charaktere, Objekte und Stile. All trainiert zusätzlich den Perceiver, der den Caption in Gist-Token verwandelt, die Modulation jedes Blocks und die Ein-/Ausgabeschichten: das ist das Rezept, mit dem BRIA Fibo 2.0 trainiert hat; es gibt die meiste Kontrolle und ist schwerer.",
+  "Preview Size:": "Vorschaugröße:",
+  "The LoKr cannot be written in ComfyUI's fused layers: {n} layers are left out.": "Das LoKr lässt sich nicht in ComfyUIs fusionierte Schichten schreiben: {n} Schichten fallen weg.",
+  "{n} layers could not be mapped to ComfyUI.": "{n} Schichten konnten nicht auf ComfyUI abgebildet werden."
 }

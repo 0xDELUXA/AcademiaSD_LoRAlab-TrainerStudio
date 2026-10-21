@@ -35,6 +35,10 @@ PROMPT_EDIT = ("<|im_start|>system\nDescribe the key features of the input image
                "where appropriate.<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n")
 DROP_EDIT = 64
 EDIT_IMAGE_PROMPT = "Picture 1: <|vision_start|><|image_pad|><|vision_end|>"
+
+
+def edit_image_prompt(count):
+    return "".join(f"Picture {i + 1}: <|vision_start|><|image_pad|><|vision_end|>" for i in range(count))
 MAX_TEXT_TOKENS = 1024
 # Edit-2511: la imagen de antes entra al text encoder a ~384² y al transformer (latente) a ~1024².
 CONDITION_IMAGE_AREA = 384 * 384
