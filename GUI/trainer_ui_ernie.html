@@ -339,7 +339,7 @@
 
                     <div class="form-group">
                         <label>Cache Folder (Auto):</label>
-                        <input type="text" id="precache_cache_dir" value="./cached_data_ernie" readonly title="Path generated automatically, for information">
+                        <input type="text" id="precache_cache_dir" value="./Cache_Data/cached_data_ernie" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-group">
@@ -443,7 +443,7 @@
                 <div class="panel-body">
                     <div class="form-group">
                         <label>Output Dir (Auto):</label>
-                        <input type="text" id="train_output_dir" value="./ernie_lora_output" readonly title="Path generated automatically, for information">
+                        <input type="text" id="train_output_dir" value="./Outputs/ernie_lora_output" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-row">
@@ -878,8 +878,8 @@
 
         function updateProjectPaths() {
             const proj = document.getElementById('project_name').value.trim();
-            const cacheDir = proj ? `./cached_data_ernie_${proj}` : './cached_data_ernie';
-            const outputDir = proj ? `./ernie_lora_output_${proj}` : './ernie_lora_output';
+            const cacheDir = proj ? `./Cache_Data/cached_data_ernie_${proj}` : './Cache_Data/cached_data_ernie';
+            const outputDir = proj ? `./Outputs/ernie_lora_output_${proj}` : './Outputs/ernie_lora_output';
 
             document.getElementById('precache_cache_dir').value = cacheDir;
             document.getElementById('train_output_dir').value = outputDir;

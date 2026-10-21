@@ -336,7 +336,7 @@
 
                     <div class="form-group">
                         <label>Cache Folder (Auto):</label>
-                        <input type="text" id="precache_cache_dir" value="./cached_data_zimage" readonly title="Path generated automatically, for information">
+                        <input type="text" id="precache_cache_dir" value="./Cache_Data/cached_data_zimage" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-group">
@@ -440,7 +440,7 @@
                 <div class="panel-body">
                     <div class="form-group">
                         <label>Output Dir (Auto):</label>
-                        <input type="text" id="train_output_dir" value="./zimage_lora_output" readonly title="Path generated automatically, for information">
+                        <input type="text" id="train_output_dir" value="./Outputs/zimage_lora_output" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-row">
@@ -598,7 +598,7 @@
                             <input type="number" step="0.05" id="train_turbo_strength" value="1.0" style="padding:3px 8px; font-size:0.8rem; width:80px;">
                         </div>
                         <span style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-top: 4px;">
-                            Z-Image_NF4/LoRAs/Z-Image-Fun-Lora-Distill-4-Steps-2603-ComfyUI.safetensors
+                            Models/Z-Image_NF4/LoRAs/Z-Image-Fun-Lora-Distill-4-Steps-2603-ComfyUI.safetensors
                         </span>
                     </div>
 
@@ -875,8 +875,8 @@
 
         function updateProjectPaths() {
             const proj = document.getElementById('project_name').value.trim();
-            const cacheDir = proj ? `./cached_data_zimage_${proj}` : './cached_data_zimage';
-            const outputDir = proj ? `./zimage_lora_output_${proj}` : './zimage_lora_output';
+            const cacheDir = proj ? `./Cache_Data/cached_data_zimage_${proj}` : './Cache_Data/cached_data_zimage';
+            const outputDir = proj ? `./Outputs/zimage_lora_output_${proj}` : './Outputs/zimage_lora_output';
             
             document.getElementById('precache_cache_dir').value = cacheDir;
             document.getElementById('train_output_dir').value = outputDir;

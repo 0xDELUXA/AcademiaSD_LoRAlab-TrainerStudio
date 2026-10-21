@@ -20,6 +20,7 @@ import webbrowser
 from console_stream import read_console
 from trainer_stream import TrainerStream
 import i18n
+import project_layout
 import remote_access
 import file_transfer
 import gpu_stats
@@ -85,6 +86,7 @@ PRECACHE_SCRIPT = SCRIPTS_DIR / "1_pre_cache_MiniMaxH3.py"
 TRAIN_SCRIPT = SCRIPTS_DIR / "2_train_lora_MiniMaxH3.py"
 
 app = Flask(__name__)
+project_layout.ensure_layout_and_log(BASE_DIR)
 runtime = TrainerStream(BASE_DIR, SETTINGS_DIR, "minimaxh3")
 
 # LOG DE TAREAS QUE CORREN DENTRO DEL SERVIDOR.
@@ -177,18 +179,15 @@ def write_json_file(path, data):
 def resolve_config_path(value, default):
     if value is None or str(value).strip() == "":
         value = default
-    path = Path(str(value))
-    if path.is_absolute():
-        return path
-    return (BASE_DIR / path).resolve()
+    return project_layout.resolve_project_path(value, default, BASE_DIR)
 
 
 def get_train_output_dir():
     cfg = read_json_file(TRAIN_CONFIG, {})
     proj = cfg.get("project_name", "").strip()
     if proj:
-        return resolve_config_path(f"MiniMaxH3_lora_output_{proj}", "MiniMaxH3_lora_output")
-    return resolve_config_path(cfg.get("output_dir"), "MiniMaxH3_lora_output")
+        return resolve_config_path(f"minimaxh3_lora_output_{proj}", "minimaxh3_lora_output")
+    return resolve_config_path(cfg.get("output_dir"), "minimaxh3_lora_output")
 
 
 # Extensiones del dataset. Se declaran una sola vez: antes cada endpoint tenia
@@ -465,9 +464,9 @@ def save_precache():
         if not isinstance(data, dict):
             return jsonify({"status": "error", "error": t("JSON object required.")}), 400
         proj = data.get("project_name", "").strip()
-        cache_dir_name = f"cached_data_MiniMaxH3_{proj}" if proj else "cached_data_MiniMaxH3"
-        output_dir_name = f"MiniMaxH3_lora_output_{proj}" if proj else "MiniMaxH3_lora_output"
-        data["cache_dir"] = f"./{cache_dir_name}"
+        cache_dir_name = f"cached_data_minimaxh3_{proj}" if proj else "cached_data_minimaxh3"
+        output_dir_name = f"minimaxh3_lora_output_{proj}" if proj else "minimaxh3_lora_output"
+        data["cache_dir"] = f"./Cache_Data/{cache_dir_name}"
         write_json_file(PRECACHE_CONFIG, data)
         saved_files = [PRECACHE_CONFIG.name]
         if proj:
@@ -475,14 +474,14 @@ def save_precache():
             cache_dir_path.mkdir(parents=True, exist_ok=True)
             cache_json_file = cache_dir_path / f"pre_cache_settings_{proj}.json"
             write_json_file(cache_json_file, data)
-            saved_files.append(f"{cache_dir_name}/{cache_json_file.name}")
+            saved_files.append(f"Cache_Data/{cache_dir_name}/{cache_json_file.name}")
         train_cfg = read_json_file(TRAIN_CONFIG, {})
         if "dataset_path" in data:
             train_cfg["dataset_path"] = data["dataset_path"]
         if "project_name" in data:
             train_cfg["project_name"] = data["project_name"]
             train_cfg["cache_dir"] = data["cache_dir"]
-            train_cfg["output_dir"] = f"./{output_dir_name}"
+            train_cfg["output_dir"] = f"./Outputs/{output_dir_name}"
         if "trigger_word" in data:
             train_cfg["trigger_word"] = data["trigger_word"]
         write_json_file(TRAIN_CONFIG, train_cfg)
@@ -520,13 +519,12 @@ def save_train():
         if not isinstance(data, dict):
             return jsonify({"status": "error", "error": t("JSON object required.")}), 400
         proj = data.get("project_name", "").strip()
-        cache_dir_name = f"cached_data_MiniMaxH3_{proj}" if proj else "cached_data_MiniMaxH3"
-        output_dir_name = f"MiniMaxH3_lora_output_{proj}" if proj else "MiniMaxH3_lora_output"
-        data["cache_dir"] = f"./{cache_dir_name}"
-        data["output_dir"] = f"./{output_dir_name}"
+        cache_dir_name = f"cached_data_minimaxh3_{proj}" if proj else "cached_data_minimaxh3"
+        output_dir_name = f"minimaxh3_lora_output_{proj}" if proj else "minimaxh3_lora_output"
+        data["cache_dir"] = f"./Cache_Data/{cache_dir_name}"
+        data["output_dir"] = f"./Outputs/{output_dir_name}"
         # Lo que había antes: con el entrenamiento en marcha, la GUI avisa solo de lo que ha cambiado.
         previous = read_json_file(TRAIN_CONFIG, {})
-
         write_json_file(TRAIN_CONFIG, data)
         saved_files = [TRAIN_CONFIG.name]
         if proj:
@@ -534,8 +532,12 @@ def save_train():
             output_dir_path.mkdir(parents=True, exist_ok=True)
             output_json_file = output_dir_path / f"train_settings_{proj}.json"
             write_json_file(output_json_file, data)
-            saved_files.append(f"{output_dir_name}/{output_json_file.name}")
-        return jsonify({"status": "ok", "previous": previous, "file": saved_files[0], "all_saved": saved_files})
+        cache_dir_name = f"cached_data_minimaxh3_{proj}" if proj else "cached_data_minimaxh3"
+        output_dir_name = f"minimaxh3_lora_output_{proj}" if proj else "minimaxh3_lora_output"
+        data["cache_dir"] = f"./Cache_Data/{cache_dir_name}"
+        data["output_dir"] = f"./Outputs/{output_dir_name}"
+        # Lo que había antes: con el entrenamiento en marcha, la GUI avisa solo de lo que ha cambiado.
+        previous = read_json_file(TRAIN_CONFIG, {})
     except Exception as exc:
         return jsonify({"status": "error", "error": str(exc)}), 500
 
@@ -562,9 +564,7 @@ def cache_info():
     count and the latent geometry. Without a cache it reports available=False
     and the UI falls back to max_seq_len as the worst case.
     """
-    cfg = read_json_file(PRECACHE_CONFIG, {})
-    proj = str(cfg.get("project_name", "")).strip()
-    cache_dir = BASE_DIR / ("cached_data_MiniMaxH3_" + proj if proj else "cached_data_MiniMaxH3")
+    cache_dir = _get_precache_dir()
 
     out = {"available": False, "cache_dir": str(cache_dir), "images": 0,
            "max_text_tokens": 0, "max_video_tokens": 0}
@@ -1085,8 +1085,8 @@ def _get_precache_dir():
     cfg = read_json_file(PRECACHE_CONFIG, {})
     proj = str(cfg.get("project_name", "")).strip()
     if proj:
-        return resolve_config_path("cached_data_MiniMaxH3_{}".format(proj), "./cached_data_MiniMaxH3")
-    return resolve_config_path(cfg.get("cache_dir"), "./cached_data_MiniMaxH3")
+        return resolve_config_path("cached_data_minimaxh3_{}".format(proj), "./cached_data_minimaxh3")
+    return resolve_config_path(cfg.get("cache_dir"), "./cached_data_minimaxh3")
 
 
 def _wipe_dir(path):
@@ -1624,9 +1624,10 @@ def extract_vocals():
 
         import torch
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        log_tarea("[VOCALS] " + t("Device: {device} | model folder: {path}", device=device, path="./MelBandRoFormer"))
+        melband_dir = project_layout.resolve_model_dir("MelBandRoFormer", root=BASE_DIR)
+        log_tarea("[VOCALS] " + t("Device: {device} | model folder: {path}", device=device, path=str(melband_dir)))
         log_tarea("[VOCALS] " + t("{n} file(s) to process", n=len(muestras)))
-        modelo = sep.cargar(str(BASE_DIR / "MelBandRoFormer"), device, log=log_tarea)
+        modelo = sep.cargar(str(melband_dir), device, log=log_tarea)
         if modelo is None:
             return jsonify({"status": "error",
                             "error": "Could not load the separation model. / "

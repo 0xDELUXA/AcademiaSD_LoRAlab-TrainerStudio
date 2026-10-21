@@ -39,6 +39,10 @@ Ming-Image-Raw/
 Fibo2_Dev-Raw/
 Fibo2_Dev-NF4/
 
+/Models/
+/Outputs/
+/Cache_Data/
+
 # Ejecuciones / Runs
 cached_data_*/
 *_lora_output*/

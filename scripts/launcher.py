@@ -35,6 +35,7 @@ from flask import Flask, abort, jsonify, request, send_from_directory
 
 import gpu_stats
 import i18n
+import project_layout
 import remote_access
 from i18n import t
 
@@ -43,6 +44,8 @@ GUI_DIR = BASE_DIR / "GUI"
 CODE_DIR = BASE_DIR / "code"
 SCRIPTS_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = GUI_DIR / "launcher.json"
+
+project_layout.ensure_layout_and_log(BASE_DIR)
 
 app = Flask(__name__)
 logging.getLogger("werkzeug").setLevel(logging.ERROR)

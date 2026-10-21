@@ -24,6 +24,7 @@ from PIL import Image
 from huggingface_hub import snapshot_download
 from transformers import AutoProcessor, BitsAndBytesConfig, Qwen3VLForConditionalGeneration
 from i18n import t
+from project_layout import resolve_model_dir
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -35,7 +36,7 @@ except Exception:
 warnings.filterwarnings("ignore", message=".*is not aligned for fast kernel.*")
 
 DEFAULTS = {
-    "model_id": "Krea-2-NF4",
+    "model_id": "Models/Krea-2-NF4",
     "dataset_path": "./dataset",
     "trigger_word": "",
     "caption_prompt": (
@@ -81,6 +82,7 @@ def load_config():
 
 
 def load_captioner(model_id):
+    model_id = str(resolve_model_dir(model_id, "Models/Krea-2-NF4"))
     path = os.path.join(model_id, "text_encoder")
     processor_path = os.path.join(model_id, "processor")
     if not os.path.exists(os.path.join(path, "config.json")) or not os.path.exists(os.path.join(processor_path, "preprocessor_config.json")):

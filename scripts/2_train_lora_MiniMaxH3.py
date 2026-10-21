@@ -89,6 +89,7 @@ ACTIVATION_OFFLOAD_ACTIVE = False
 
 import psutil
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 
 # La GUI busca "<Paso> N/Total" en la consola para saber por qué paso va.
@@ -117,9 +118,9 @@ def ram_stats(label=""):
 # =============================================================================
 
 DEFAULTS = {
-    "nf4_cache_dir": "./MiniMax-H3-NF4",
-    "cache_dir": "./cached_data_minimaxh3",
-    "output_dir": "./minimaxh3_lora_output",
+    "nf4_cache_dir": "Models/MiniMax-H3-NF4",
+    "cache_dir": "./Cache_Data/cached_data_minimaxh3",
+    "output_dir": "./Outputs/minimaxh3_lora_output",
     # --- Presupuesto de pasos -----------------------------------------------
     # total_steps y warmup_steps se cuentan en MICRO-PASOS (1 muestra cada uno).
     # El optimizador solo actualiza cada grad_accum_steps, asi que lo que de
@@ -987,7 +988,7 @@ BF16_REDUCED_PRECISION = _cfg_bool(
 DATASET_SAMPLER = str(
     cfg_get("dataset_sampler", DEFAULTS["dataset_sampler"])).strip().lower()
 
-NF4_CACHE_DIR = str(cfg_get("nf4_cache_dir", DEFAULTS["nf4_cache_dir"])).strip()
+NF4_CACHE_DIR = str(resolve_model_dir(cfg_get("nf4_cache_dir", DEFAULTS["nf4_cache_dir"]), DEFAULTS["nf4_cache_dir"]))
 TOTAL_STEPS = int(cfg_get("total_steps", DEFAULTS["total_steps"]))
 BATCH_SIZE = int(cfg_get("batch_size", DEFAULTS["batch_size"]))
 GRAD_ACCUM_STEPS = int(cfg_get("grad_accum_steps", DEFAULTS["grad_accum_steps"]))
@@ -1113,12 +1114,8 @@ LORA_SKIP_FIRST_N_BLOCKS = int(cfg_get("lora_skip_first_n_blocks", DEFAULTS["lor
 if LOW_VRAM_12GB:
     LOSS_CHUNK_ELEMENTS = min(LOSS_CHUNK_ELEMENTS, 125000)
 
-if PROJECT_NAME:
-    CACHE_DIR = "./cached_data_minimaxh3_{}".format(PROJECT_NAME)
-    OUTPUT_DIR = "./minimaxh3_lora_output_{}".format(PROJECT_NAME)
-else:
-    CACHE_DIR = str(cfg_get("cache_dir", DEFAULTS["cache_dir"])).strip()
-    OUTPUT_DIR = str(cfg_get("output_dir", DEFAULTS["output_dir"])).strip()
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_minimaxh3_{PROJECT_NAME}" if PROJECT_NAME else cfg_get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./minimaxh3_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg_get("output_dir"), DEFAULTS["output_dir"]))
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 RESUME_DIR = os.path.join(OUTPUT_DIR, "resume_checkpoint")
@@ -7430,15 +7427,11 @@ def reload_runtime_config():
     # makes the model and dataset reload on their own.
     PROJECT_NAME = str(cfg_get("project_name", DEFAULTS["project_name"])).strip()
     TRIGGER_WORD = str(cfg_get("trigger_word", DEFAULTS["trigger_word"])).strip()
-    NF4_CACHE_DIR = str(cfg_get("nf4_cache_dir", DEFAULTS["nf4_cache_dir"])).strip()
+    NF4_CACHE_DIR = str(resolve_model_dir(cfg_get("nf4_cache_dir", DEFAULTS["nf4_cache_dir"]), DEFAULTS["nf4_cache_dir"]))
     SEED = int(cfg_get("seed", DEFAULTS["seed"]))
 
-    if PROJECT_NAME:
-        CACHE_DIR = "./cached_data_minimaxh3_{}".format(PROJECT_NAME)
-        OUTPUT_DIR = "./minimaxh3_lora_output_{}".format(PROJECT_NAME)
-    else:
-        CACHE_DIR = str(cfg_get("cache_dir", DEFAULTS["cache_dir"])).strip()
-        OUTPUT_DIR = str(cfg_get("output_dir", DEFAULTS["output_dir"])).strip()
+    CACHE_DIR = str(resolve_cache_dir(f"./cached_data_minimaxh3_{PROJECT_NAME}" if PROJECT_NAME else cfg_get("cache_dir"), DEFAULTS["cache_dir"]))
+    OUTPUT_DIR = str(resolve_output_dir(f"./minimaxh3_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg_get("output_dir"), DEFAULTS["output_dir"]))
 
     try:
         os.makedirs(OUTPUT_DIR, exist_ok=True)

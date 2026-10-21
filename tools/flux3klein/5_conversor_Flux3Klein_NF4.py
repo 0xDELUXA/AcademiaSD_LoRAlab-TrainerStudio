@@ -31,8 +31,8 @@ from bitsandbytes.functional import quantize_4bit
 from safetensors import safe_open
 from safetensors.torch import save_file
 
-MODEL_ID = sys.argv[1] if len(sys.argv) > 1 else "./flux-3-image-klein-base"
-OUTPUT_DIR = sys.argv[2] if len(sys.argv) > 2 else "./FLUX.3-Image-Klein_NF4"
+MODEL_ID = sys.argv[1] if len(sys.argv) > 1 else "./Models/flux-3-image-klein-base"
+OUTPUT_DIR = sys.argv[2] if len(sys.argv) > 2 else "./Models/FLUX.3-Image-Klein_NF4"
 
 # Capas lineales de los bloques: 5 dobles (pesos por flujo: imagen, imagen de referencia y texto)
 # y 28 simples. Embedders, modulaciones y la capa de salida se quedan en BF16.

@@ -36,6 +36,7 @@ from PIL import Image
 from huggingface_hub import snapshot_download
 from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 from i18n import t
+from project_layout import resolve_model_dir
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -47,7 +48,7 @@ except Exception:
 warnings.filterwarnings("ignore", message=".*is not aligned for fast kernel.*")
 
 DEFAULTS = {
-    "model_id": "Fibo2_Dev-NF4",
+    "model_id": "Models/Fibo2_Dev-NF4",
     "dataset_path": "./dataset",
     "trigger_word": "",
     "caption_mode": "normal",
@@ -122,6 +123,7 @@ def find_samples(dataset, mode):
 
 
 def load_captioner(model_id):
+    model_id = str(resolve_model_dir(model_id, "Models/Fibo2_Dev-NF4"))
     path = os.path.join(model_id, "text_encoder_NF4")
     if not os.path.exists(os.path.join(path, "config.json")):
         # Instalacion limpia: solo hace falta el text encoder NF4 y el processor.

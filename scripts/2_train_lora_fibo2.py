@@ -35,6 +35,7 @@ from bitsandbytes.functional import QuantState
 from bitsandbytes.nn import Linear4bit, Params4bit
 from i18n import t
 import lora_options
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import fibo2_caption
 import fibo2_lora
 
@@ -61,9 +62,9 @@ CONTEXT_DROPOUT = 0.2
 TEXT_IMAGES_MAX_SIGMA = 0.9
 
 DEFAULTS = {
-    "model_id": "Fibo2_Dev-NF4",
-    "cache_dir": "./cached_data_fibo2",
-    "output_dir": "./fibo2_lora_output",
+    "model_id": "Models/Fibo2_Dev-NF4",
+    "cache_dir": "./Cache_Data/cached_data_fibo2",
+    "output_dir": "./Outputs/fibo2_lora_output",
     "total_steps": 1200,
     "batch_size": 1,
     "grad_accum_steps": 4,
@@ -107,7 +108,7 @@ else:
     cfg = {}
     print("[!] " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID          = cfg.get("model_id",          DEFAULTS["model_id"])
+MODEL_ID          = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 TOTAL_STEPS       = cfg.get("total_steps",       DEFAULTS["total_steps"])
 BATCH_SIZE        = cfg.get("batch_size",        DEFAULTS["batch_size"])
 GRAD_ACCUM_STEPS  = cfg.get("grad_accum_steps",  DEFAULTS["grad_accum_steps"])
@@ -150,12 +151,8 @@ TURBO_LORA_STRENGTH = float(cfg.get("turbo_lora_strength", DEFAULTS["turbo_lora_
 TRIGGER_WORD      = cfg.get("trigger_word", "")
 PROJECT_NAME      = cfg.get("project_name", "").strip()
 
-if PROJECT_NAME:
-    CACHE_DIR  = f"./cached_data_fibo2_{PROJECT_NAME}"
-    OUTPUT_DIR = f"./fibo2_lora_output_{PROJECT_NAME}"
-else:
-    CACHE_DIR  = cfg.get("cache_dir",  DEFAULTS["cache_dir"])
-    OUTPUT_DIR = cfg.get("output_dir", DEFAULTS["output_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./Cache_Data/cached_data_fibo2_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./Outputs/fibo2_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("output_dir"), DEFAULTS["output_dir"]))
 
 print(f"  {t('Model ID'):<22}: {MODEL_ID}")
 print(f"  {t('Project Name'):<22}: {PROJECT_NAME if PROJECT_NAME else t('(Default)')}")

@@ -49,6 +49,7 @@ import time
 
 import torch
 from i18n import t
+from project_layout import resolve_model_dir
 
 
 # =============================================================================
@@ -76,7 +77,7 @@ DEFAULTS = {
     # Measured: 242 seconds per image. The 4B in NF4 is ~3 GB, fits entirely on
     # any card from 6 GB up, and never touches shared memory.
     "captioner_repo": "Qwen/Qwen3-VL-4B-Instruct",
-    "captioner_dir": "./Qwen3-VL-4B-Instruct",
+    "captioner_dir": "Models/Qwen3-VL-4B-Instruct",
 
     # 4 bits deja el modelo en ~3 GB. Ponlo a False para bf16 (~8 GB) si te
     # sobra VRAM y quieres el maximo de calidad en la descripcion.
@@ -237,7 +238,8 @@ def ensure_captioner(cfg):
 
     Downloads the captioning model if it is not on disk already.
     """
-    directory = cfg["captioner_dir"]
+    directory = str(resolve_model_dir(cfg["captioner_dir"], "Models/Qwen3-VL-4B-Instruct"))
+    cfg["captioner_dir"] = directory
 
     if captioner_is_present(directory):
         log(LF("[CAPTION] Model found: {}",

@@ -12,6 +12,7 @@ from diffusers import AutoencoderKLFlux2, ErnieImagePipeline, ErnieImageTransfor
 from peft import LoraConfig, get_peft_model, get_peft_model_state_dict, set_peft_model_state_dict
 from safetensors import safe_open
 from safetensors.torch import load, load_file, save_file
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 
 # La barra de progreso comparte los caracteres visuales del entrenador Klein. Fuerza UTF-8
@@ -30,9 +31,9 @@ except (UnicodeEncodeError, LookupError):
 
 CONFIG="settings/train_settings_ernie.json"
 cfg=json.load(open(CONFIG,encoding="utf-8")) if os.path.isfile(CONFIG) else {}
-MODEL=cfg.get("model_id","Ernie-NF4"); PROJECT=cfg.get("project_name","").strip()
-CACHE=f"./cached_data_ernie_{PROJECT}" if PROJECT else cfg.get("cache_dir","./cached_data_ernie")
-OUT=f"./ernie_lora_output_{PROJECT}" if PROJECT else cfg.get("output_dir","./ernie_lora_output")
+MODEL=str(resolve_model_dir(cfg.get("model_id"), "Models/Ernie-NF4")); PROJECT=cfg.get("project_name","").strip()
+CACHE=str(resolve_cache_dir(f"./cached_data_ernie_{PROJECT}" if PROJECT else cfg.get("cache_dir"), "./Cache_Data/cached_data_ernie"))
+OUT=str(resolve_output_dir(f"./ernie_lora_output_{PROJECT}" if PROJECT else cfg.get("output_dir"), "./Outputs/ernie_lora_output"))
 STEPS=int(cfg.get("total_steps",1000)); BATCH=int(cfg.get("batch_size",1)); ACCUM=max(1,int(cfg.get("grad_accum_steps",4)))
 LR=float(cfg.get("lr",3e-4)); WARMUP=int(cfg.get("warmup_steps",100)); MIN_LR_RATIO=float(cfg.get("min_lr_ratio",.1)); LR_SCHEDULER=cfg.get("lr_scheduler","cosine"); LR_CYCLES=int(cfg.get("lr_cycles",3)); SAVE_EVERY=int(cfg.get("save_every",100))
 RANK=int(cfg.get("lora_rank",16)); ALPHA=float(cfg.get("lora_alpha",16)); USE_RSLORA=bool(cfg.get("use_rslora",False)); USE_LORAPLUS=bool(cfg.get("use_loraplus",False)); LORAPLUS_RATIO=float(cfg.get("loraplus_ratio",16)); USE_LOKR=bool(cfg.get("use_lokr",False)); LOKR_FACTOR=max(1,int(cfg.get("lokr_factor",16)))

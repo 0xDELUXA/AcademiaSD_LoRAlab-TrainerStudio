@@ -344,13 +344,13 @@
 
                     <div class="form-group">
                         <label>Cache Folder (Auto):</label>
-                        <input type="text" id="precache_cache_dir" value="./cached_data_boogu" readonly title="Path generated automatically, for information">
+                        <input type="text" id="precache_cache_dir" value="./Cache_Data/cached_data_boogu" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-group" title="The full raw model is downloaded locally first; the transformer and text encoder are then converted to NF4. Training reads the local NF4 folder.">
                         <label>Boogu Model (local NF4):</label>
-                        <input type="text" value="F:\LoRAlab_Trainer\AcademiaSD_LoRAlab-Trainer\Boogu-image-edit-NF4" readonly>
-                        <small style="color:var(--text-muted);">Raw temporal (se borra tras validar NF4): <code>F:\LoRAlab_Trainer\AcademiaSD_LoRAlab-Trainer\Boogu-image-edit-Raw</code></small>
+                        <input type="text" value="Models/Boogu-image-edit-NF4" readonly>
+                        <small style="color:var(--text-muted);">Raw temporal (se borra tras validar NF4): <code>Models/Boogu-image-edit-Raw</code></small>
                     </div>
 
                     <div class="form-group">
@@ -454,7 +454,7 @@
                 <div class="panel-body">
                     <div class="form-group">
                         <label>Output Dir (Auto):</label>
-                        <input type="text" id="train_output_dir" value="./boogu_lora_output" readonly title="Path generated automatically, for information">
+                        <input type="text" id="train_output_dir" value="./Outputs/boogu_lora_output" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-row">
@@ -913,8 +913,8 @@
 
         function updateProjectPaths() {
             const proj = document.getElementById('project_name').value.trim();
-            const cacheDir = proj ? `./cached_data_boogu_${proj}` : './cached_data_boogu';
-            const outputDir = proj ? `./boogu_lora_output_${proj}` : './boogu_lora_output';
+            const cacheDir = proj ? `./Cache_Data/cached_data_boogu_${proj}` : './Cache_Data/cached_data_boogu';
+            const outputDir = proj ? `./Outputs/boogu_lora_output_${proj}` : './Outputs/boogu_lora_output';
             
             document.getElementById('precache_cache_dir').value = cacheDir;
             document.getElementById('train_output_dir').value = outputDir;

@@ -23,6 +23,7 @@ from transformers import AutoProcessor, Qwen3VLModel
 import logging
 import sys
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -39,9 +40,9 @@ OFFLOAD_RESERVE_BYTES = int(1.5 * 1024**3)
 
 # ── DEFAULTS / VALORES POR DEFECTO ──────────────────────────────────────────
 DEFAULTS = {
-    "model_id": "FLUX.3-Image-Klein_NF4",
+    "model_id": "Models/FLUX.3-Image-Klein_NF4",
     "dataset_path": "./dataset",
-    "cache_dir": "./cached_data_flux3klein",
+    "cache_dir": "./Cache_Data/cached_data_flux3klein",
     "target_area": 768 * 768,
     "max_side": 1536,
     "multiple": 16,
@@ -79,7 +80,7 @@ else:
     cfg = {}
     print("⚠ " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID     = cfg.get("model_id",     DEFAULTS["model_id"])
+MODEL_ID     = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 DATASET_PATH = cfg.get("dataset_path", DEFAULTS["dataset_path"])
 TARGET_AREA  = cfg.get("target_area",  DEFAULTS["target_area"])
 MAX_SIDE     = cfg.get("max_side",     DEFAULTS["max_side"])
@@ -92,10 +93,7 @@ LORA_TYPE = cfg.get("lora_type", DEFAULTS["lora_type"])
 # Solo edición: imágenes de referencia (fuera del dataset) para ver en las previews cómo aplica el efecto.
 PREVIEW_EDIT_IMAGES = config_preview_images(cfg) if LORA_TYPE == "edit" else []
 
-if PROJECT_NAME:
-    CACHE_DIR = f"./cached_data_flux3klein_{PROJECT_NAME}"
-else:
-    CACHE_DIR = cfg.get("cache_dir", DEFAULTS["cache_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_flux3klein_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
 
 # VAE 8x + parches 2x2 en el transformer: lados múltiplos de 16 px.
 if MULTIPLE not in (16, 32, 64):

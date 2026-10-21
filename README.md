@@ -108,7 +108,7 @@ Each trainer downloads **only what it uses**, already quantized. The table compa
 
 The automatic captioner adds, only the first time you use it: **nothing** for Krea 2 (it uses Krea 2's own text encoder), **5.5 GB** for Qwen-Image 2.1 when its text encoder is not already the NF4 one and for LTX-2.3, Z-Image, Anima, FLUX.2 Klein 9B and Ideogram 4 (Qwen3-VL-8B NF4, shared by all of them), and **8.9 GB** for MiniMax-H3 (Qwen3-VL-4B).
 
-> **Upgrading from an old standalone LoRAlab?** Copy its model folder into Trainer Studio instead of downloading it again. Then you can delete what is no longer used: `Krea-2-NF4/transformer` (~26 GB) and, in `LTX23-NF4`, the `transformer` (~38 GB) and `text_encoder` (~49 GB) folders.
+> **Upgrading from an old standalone LoRAlab?** Copy its model folder into `Models/` instead of downloading it again. Legacy model, cache and output folders in the project root are moved automatically on first start. Then you can delete what is no longer used: `Models/Krea-2-NF4/transformer` (~26 GB) and, in `Models/LTX23-NF4`, the `transformer` (~38 GB) and `text_encoder` (~49 GB) folders.
 
 ---
 
@@ -176,7 +176,7 @@ Also in every trainer:
 - Exported LoRAs carry kohya-style metadata (trigger word, rank, steps, resolution) that CivitAI and LoRA managers read.
 - **Several NVIDIA GPUs?** Pick the one to train with in **🎮 GPU**, next to the language at the bottom of the launcher, and press **💾 Save settings**. It applies to the trainers opened from then on, and the VRAM panel shows that card. *Automatic* keeps CUDA's choice, which puts the card it considers fastest first, not always the one with more VRAM. The selector only appears with two or more NVIDIA cards.
 - Optional **Hugging Face token** for faster downloads. Your settings and token are stored in `settings\`, which is never uploaded.
-- Each project uses its own folders: `cached_data_<model>_<project>` for the pre-cache and `<model>_lora_output_<project>` for checkpoints, previews and LoRAs.
+- Models live under `Models/`. Each project uses `Cache_Data/cached_data_<model>_<project>` for the pre-cache and `Outputs/<model>_lora_output_<project>` for checkpoints, previews and LoRAs. Legacy root folders are moved automatically on first start. Migration is skipped while a training or captioning process is running.
 
 ---
 
@@ -492,7 +492,7 @@ The official image-edit task works at 1024: 512 and 768 are out of its distribut
 
 ### SDXL — Base, Pony, Illustrious, NoobAI, Juggernaut, RealVis or your own checkpoint
 
-- **Base Model** picks what the LoRA is trained on. Each preset is downloaded the first time (~7 GB) into `SDXL-Models/`:
+- **Base Model** picks what the LoRA is trained on. Each preset is downloaded the first time (~7 GB) into `Models/SDXL-Models/`:
 
   | Preset | Best for | Captions | Quality prefix (optional) · Preview CFG |
   | :--- | :--- | :--- | :--- |
@@ -506,7 +506,7 @@ The official image-edit task works at 1024: 512 and 768 are out of its distribut
 
   A LoRA works best on the model it was trained on and on models derived from it: train on Illustrious v0.1 for Illustrious-based checkpoints such as WAI or NoobAI.
 - **Captioner:** Qwen3-VL-8B NF4 (shared), with **natural language** or **Danbooru tags**. Long captions are encoded in blocks of 75 tokens (up to 225), as kohya does.
-- **Model Precision:** *BF16* or *NF4*, which quantizes the transformer blocks to 4 bits when loading and fits in a **4 GB GPU**. The first training run on a model saves its converted UNet in `SDXL-Models/unet_cache/` (~5 GB on disk); from then on it loads with ~5.5 GB of RAM instead of ~14 GB.
+- **Model Precision:** *BF16* or *NF4*, which quantizes the transformer blocks to 4 bits when loading and fits in a **4 GB GPU**. The first training run on a model saves its converted UNet in `Models/SDXL-Models/unet_cache/` (~5 GB on disk); from then on it loads with ~5.5 GB of RAM instead of ~14 GB.
 - **Training:** the UNet with gradient checkpointing, noise prediction with Min-SNR weighting (γ = 5). **LoRA Targets:** *Blocks* (attention, MLP and projections of the transformer blocks, kohya's default) or *All* (+ the resnet convolutions, LoCon).
 - **Quality prefix in captions** (Pony, Illustrious, NoobAI; off by default): puts the preset's prefix (`score_9, score_8_up, score_7_up` for Pony) before every caption and the preview prompt. Off, the previews show the LoRA alone; on, use the LoRA with that prefix in ComfyUI.
 - **Previews:** Euler, 28 steps, with the preset's negative prompt. **Preview CFG 0** uses the preset's recommended value.
@@ -657,10 +657,13 @@ AcademiaSD_LoRAlab-TrainerStudio/
 ├── assets/                           # Covers and logos
 ├── tools/<model>/                    # NF4 converters and dataset tools (tools/all-smi/ on AMD Windows)
 ├── Example_Dataset/                  # Small example dataset (MiniMax-H3)
+├── Models/                           # Downloaded and converted models
+├── Outputs/                          # LoRA checkpoints, previews and final LoRAs
+├── Cache_Data/                       # Text embeddings and VAE latents
 └── settings/                         # Your settings, HF token, network.json and ui.json (created on first use, never uploaded)
 ```
 
-Models (`Krea-2-NF4`, `LTX23-NF4`, `MiniMax-H3-NF4`, `Qwen-Image21-NF4`, `Z-Image_NF4`, `Anima-Base`, `FLUX.2-Klein-9B_NF4`, `FLUX.3-Image-Klein_NF4`, `Ideogram4-NF4`, `MOSS-Image-NF4`, `Ming-Image_NF4`, `Fibo2_Dev-NF4`, `SDXL-Models`, captioners), caches and LoRA outputs are created next to these folders on first use.
+Models (`Krea-2-NF4`, `LTX23-NF4`, `MiniMax-H3-NF4`, `Qwen-Image21-NF4`, `Z-Image_NF4`, `Anima-Base`, `FLUX.2-Klein-9B_NF4`, `FLUX.3-Image-Klein_NF4`, `Ideogram4-NF4`, `MOSS-Image-NF4`, `Ming-Image_NF4`, `Fibo2_Dev-NF4`, `SDXL-Models`, captioners) are created inside `Models/` on first use, and the caches and the LoRA outputs inside `Cache_Data/` and `Outputs/`. Legacy folders in the project root are moved into these folders automatically. A collision keeps both folders and prints a warning, so nothing is overwritten.
 
 ---
 

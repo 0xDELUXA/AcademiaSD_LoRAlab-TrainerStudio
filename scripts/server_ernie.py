@@ -21,6 +21,7 @@ import webbrowser
 from console_stream import read_console
 from trainer_stream import TrainerStream
 import i18n
+import project_layout
 import remote_access
 import file_transfer
 import gpu_stats
@@ -101,6 +102,8 @@ TRAIN_SCRIPT = SCRIPTS_DIR / "2_train_lora_ernie.py"
 
 app = Flask(__name__)
 
+project_layout.ensure_layout_and_log(BASE_DIR)
+
 runtime = TrainerStream(BASE_DIR, SETTINGS_DIR, "ernie")
 
 
@@ -149,10 +152,7 @@ def write_json_file(path, data):
 def resolve_config_path(value, default):
     if value is None or str(value).strip() == "":
         value = default
-    path = Path(str(value))
-    if path.is_absolute():
-        return path
-    return (BASE_DIR / path).resolve()
+    return project_layout.resolve_project_path(value, default, BASE_DIR)
 
 
 def get_train_output_dir():
@@ -507,7 +507,7 @@ def save_precache():
         cache_dir_name = f"cached_data_ernie_{proj}" if proj else "cached_data_ernie"
         output_dir_name = f"ernie_lora_output_{proj}" if proj else "ernie_lora_output"
 
-        data["cache_dir"] = f"./{cache_dir_name}"
+        data["cache_dir"] = f"./Cache_Data/{cache_dir_name}"
 
         # 1. Guardar en raíz con nombre genérico pre_cache_settings_ernie.json (lectura por defecto)
         write_json_file(PRECACHE_CONFIG, data)
@@ -519,7 +519,7 @@ def save_precache():
             cache_dir_path.mkdir(parents=True, exist_ok=True)
             cache_json_file = cache_dir_path / f"pre_cache_settings_{proj}.json"
             write_json_file(cache_json_file, data)
-            saved_files.append(f"{cache_dir_name}/{cache_json_file.name}")
+            saved_files.append(f"Cache_Data/{cache_dir_name}/{cache_json_file.name}")
 
         # Sincronizar train_settings_ernie.json en raíz
         train_cfg = read_json_file(TRAIN_CONFIG, {})
@@ -528,7 +528,7 @@ def save_precache():
         if "project_name" in data:
             train_cfg["project_name"] = data["project_name"]
             train_cfg["cache_dir"] = data["cache_dir"]
-            train_cfg["output_dir"] = f"./{output_dir_name}"
+            train_cfg["output_dir"] = f"./Outputs/{output_dir_name}"
         if "trigger_word" in data:
             train_cfg["trigger_word"] = data["trigger_word"]
         for key in PREVIEW_KEYS:
@@ -590,8 +590,8 @@ def save_train():
         cache_dir_name = f"cached_data_ernie_{proj}" if proj else "cached_data_ernie"
         output_dir_name = f"ernie_lora_output_{proj}" if proj else "ernie_lora_output"
 
-        data["cache_dir"] = f"./{cache_dir_name}"
-        data["output_dir"] = f"./{output_dir_name}"
+        data["cache_dir"] = f"./Cache_Data/{cache_dir_name}"
+        data["output_dir"] = f"./Outputs/{output_dir_name}"
 
         # 1. Guardar en raíz con nombre genérico
         # Lo que había antes: con el entrenamiento en marcha, la GUI avisa solo de lo que ha cambiado.
@@ -625,7 +625,7 @@ def save_train():
             output_dir_path.mkdir(parents=True, exist_ok=True)
             output_json_file = output_dir_path / f"train_settings_{proj}.json"
             write_json_file(output_json_file, data)
-            saved_files.append(f"{output_dir_name}/{output_json_file.name}")
+            saved_files.append(f"Outputs/{output_dir_name}/{output_json_file.name}")
 
         return jsonify({"status": "ok", "previous": previous, "file": saved_files[0], "all_saved": saved_files, "encoding": encoding_stage(), "encoding_device": prompt_job["device"]})
     except Exception as exc:

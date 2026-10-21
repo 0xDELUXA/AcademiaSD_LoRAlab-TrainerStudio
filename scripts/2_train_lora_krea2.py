@@ -21,6 +21,7 @@ from bitsandbytes.nn import Linear4bit, Params4bit
 from safetensors import safe_open
 from bitsandbytes.functional import QuantState
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 
 # La GUI busca "<Paso> N/Total" en la consola para saber por qué paso va.
@@ -35,9 +36,9 @@ except Exception:
 HF_REPO_ID = "AcademiaSD/Krea-2-NF4-for-LoRA-Training"
 
 DEFAULTS = {
-    "model_id": "Krea-2-NF4",
-    "cache_dir": "./cached_data_krea2",
-    "output_dir": "./krea2_lora_output",
+    "model_id": "Models/Krea-2-NF4",
+    "cache_dir": "./Cache_Data/cached_data_krea2",
+    "output_dir": "./Outputs/krea2_lora_output",
     "total_steps": 500,
     "batch_size": 1,
     "grad_accum_steps": 4,
@@ -81,7 +82,7 @@ else:
     cfg = {}
     print("[!] " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID          = cfg.get("model_id",          DEFAULTS["model_id"])
+MODEL_ID          = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 TOTAL_STEPS       = cfg.get("total_steps",       DEFAULTS["total_steps"])
 BATCH_SIZE        = cfg.get("batch_size",        DEFAULTS["batch_size"])
 GRAD_ACCUM_STEPS  = cfg.get("grad_accum_steps",  DEFAULTS["grad_accum_steps"])
@@ -124,12 +125,8 @@ FILTER_BYPASS_PATH     = os.path.join(MODEL_ID, "LoRAs", "krea2filterbypass3.saf
 TRIGGER_WORD      = cfg.get("trigger_word", "")
 PROJECT_NAME      = cfg.get("project_name", "").strip()
 
-if PROJECT_NAME:
-    CACHE_DIR  = f"./cached_data_krea2_{PROJECT_NAME}"
-    OUTPUT_DIR = f"./krea2_lora_output_{PROJECT_NAME}"
-else:
-    CACHE_DIR  = cfg.get("cache_dir",  DEFAULTS["cache_dir"])
-    OUTPUT_DIR = cfg.get("output_dir", DEFAULTS["output_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_krea2_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./krea2_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("output_dir"), DEFAULTS["output_dir"]))
 
 print(f"  {t('Model ID'):<22}: {MODEL_ID}")
 print(f"  {t('Project Name'):<22}: {PROJECT_NAME if PROJECT_NAME else t('(Default)')}")

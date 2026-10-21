@@ -11,6 +11,7 @@ import warnings
 from pathlib import Path
 
 from i18n import t
+from project_layout import resolve_model_dir
 
 # Los modelos de Boogu siempre se cargan de NF4_DIR: DiffSynth no debe intentar bajarlos de ModelScope.
 os.environ["DIFFSYNTH_SKIP_DOWNLOAD"] = "True"
@@ -21,8 +22,8 @@ warnings.filterwarnings("ignore", message="inner dimension")
 BASE_DIR = Path(__file__).resolve().parents[1]
 MODEL_REPO = "Boogu/Boogu-Image-0.1-Edit"
 NF4_REPO = "AcademiaSD/Boogu-Image-Edit-NF4-for-LoRA-Training"
-RAW_DIR = BASE_DIR / "Boogu-image-edit-Raw"
-NF4_DIR = BASE_DIR / "Boogu-image-edit-NF4"
+RAW_DIR = resolve_model_dir("Boogu-image-edit-Raw", "Boogu-image-edit-Raw")
+NF4_DIR = resolve_model_dir("Boogu-image-edit-NF4", "Boogu-image-edit-NF4")
 NF4_TRANSFORMER = NF4_DIR / "transformer" / "model.safetensors"
 NF4_TEXT_ENCODER = NF4_DIR / "mllm" / "model.safetensors"
 NF4_METADATA = NF4_DIR / "boogu_nf4_metadata.json"

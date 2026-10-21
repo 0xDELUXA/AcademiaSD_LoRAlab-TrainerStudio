@@ -19,6 +19,7 @@ from transformers import AutoTokenizer, Qwen3VLModel
 import logging
 import sys
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -35,9 +36,9 @@ HF_REPO_ID = "unsloth/ideogram-4-nf4-diffusers"
 
 # ── DEFAULTS / VALORES POR DEFECTO ──────────────────────────────────────────
 DEFAULTS = {
-    "model_id": "Ideogram4-NF4",
+    "model_id": "Models/Ideogram4-NF4",
     "dataset_path": "./dataset",
-    "cache_dir": "./cached_data_ideogram4",
+    "cache_dir": "./Cache_Data/cached_data_ideogram4",
     "target_area": 1024 * 1024,
     "max_side": 2048,
     "multiple": 16,
@@ -57,7 +58,7 @@ else:
     cfg = {}
     print("⚠ " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID     = cfg.get("model_id",     DEFAULTS["model_id"])
+MODEL_ID     = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 DATASET_PATH = cfg.get("dataset_path", DEFAULTS["dataset_path"])
 TARGET_AREA  = cfg.get("target_area",  DEFAULTS["target_area"])
 MAX_SIDE     = cfg.get("max_side",     DEFAULTS["max_side"])
@@ -67,10 +68,7 @@ PROJECT_NAME = cfg.get("project_name", "").strip()
 PREVIEW_CUSTOM_PROMPT = cfg.get("preview_custom_prompt", "").strip()
 
 # Formato automático de carpeta de caché según nombre del proyecto
-if PROJECT_NAME:
-    CACHE_DIR = f"./cached_data_ideogram4_{PROJECT_NAME}"
-else:
-    CACHE_DIR = cfg.get("cache_dir", DEFAULTS["cache_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_ideogram4_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
 
 # VAE 8x + parches 2x2 en el transformer: lados múltiplos de 16 px.
 if MULTIPLE not in (16, 32, 64):

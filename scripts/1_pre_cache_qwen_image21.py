@@ -19,6 +19,7 @@ from transformers import Qwen3VLForConditionalGeneration
 import logging
 import sys
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -47,9 +48,9 @@ OFFLOAD_RESERVE_BYTES = int(1.5 * 1024**3)
 
 # ── DEFAULTS / VALORES POR DEFECTO ──────────────────────────────────────────
 DEFAULTS = {
-    "model_id": "Qwen-Image21-NF4",
+    "model_id": "Models/Qwen-Image21-NF4",
     "dataset_path": "./dataset",
-    "cache_dir": "./cached_data_qwen_image21",
+    "cache_dir": "./Cache_Data/cached_data_qwen_image21",
     "target_area": 512 * 512,
     "max_side": 1280,
     "multiple": 32,
@@ -88,7 +89,7 @@ else:
     cfg = {}
     print("⚠ " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID     = cfg.get("model_id",     DEFAULTS["model_id"])
+MODEL_ID     = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 DATASET_PATH = cfg.get("dataset_path", DEFAULTS["dataset_path"])
 TARGET_AREA  = cfg.get("target_area",  DEFAULTS["target_area"])
 MAX_SIDE     = cfg.get("max_side",     DEFAULTS["max_side"])
@@ -103,10 +104,7 @@ LORA_TYPE = cfg.get("lora_type", DEFAULTS["lora_type"])
 PREVIEW_EDIT_IMAGES = config_preview_images(cfg) if LORA_TYPE == "edit" else []
 
 # Formato automático de carpeta de caché según nombre del proyecto
-if PROJECT_NAME:
-    CACHE_DIR = f"./cached_data_qwen_image21_{PROJECT_NAME}"
-else:
-    CACHE_DIR = cfg.get("cache_dir", DEFAULTS["cache_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_qwen_image21_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
 
 # VAE 16x sin patch + grupos 2x2 de latentes en el transformer: lados múltiplos de 32 px.
 if MULTIPLE not in (32, 64):

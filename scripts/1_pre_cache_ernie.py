@@ -6,14 +6,15 @@ import torchvision.transforms.functional as VF
 from PIL import Image
 from diffusers import AutoencoderKLFlux2, ErnieImagePipeline
 from transformers import AutoTokenizer, Mistral3Model
+from project_layout import resolve_cache_dir, resolve_model_dir
 
 CONFIG = "settings/pre_cache_settings_ernie.json"
-DEFAULTS = {"model_id": "Ernie-NF4", "dataset_path": "./dataset", "cache_dir": "./cached_data_ernie", "target_area": 512*512, "max_side": 1536, "multiple": 32, "project_name": "", "trigger_word": "", "preview_custom_prompt": ""}
+DEFAULTS = {"model_id": "Models/Ernie-NF4", "dataset_path": "./dataset", "cache_dir": "./Cache_Data/cached_data_ernie", "target_area": 512*512, "max_side": 1536, "multiple": 32, "project_name": "", "trigger_word": "", "preview_custom_prompt": ""}
 cfg = json.load(open(CONFIG, encoding="utf-8")) if os.path.isfile(CONFIG) else {}
-MODEL_ID = cfg.get("model_id", DEFAULTS["model_id"])
+MODEL_ID = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 DATASET = cfg.get("dataset_path", DEFAULTS["dataset_path"])
 PROJECT = cfg.get("project_name", "").strip()
-CACHE = f"./cached_data_ernie_{PROJECT}" if PROJECT else cfg.get("cache_dir", DEFAULTS["cache_dir"])
+CACHE = str(resolve_cache_dir(f"./cached_data_ernie_{PROJECT}" if PROJECT else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
 AREA = int(cfg.get("target_area", DEFAULTS["target_area"]))
 MAX_SIDE = int(cfg.get("max_side", DEFAULTS["max_side"]))
 MULTIPLE = 32

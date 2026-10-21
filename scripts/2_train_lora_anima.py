@@ -29,6 +29,7 @@ from safetensors import safe_open
 from safetensors.torch import save_file, load
 from bitsandbytes.nn import Linear4bit, Params4bit
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 
 # La GUI busca "<Paso> N/Total" en la consola para saber por qué paso va.
@@ -43,9 +44,9 @@ except Exception:
 HF_REPO_ID = "circlestone-labs/Anima-Base-v1.0-Diffusers"
 
 DEFAULTS = {
-    "model_id": "Anima-Base",
-    "cache_dir": "./cached_data_anima",
-    "output_dir": "./anima_lora_output",
+    "model_id": "Models/Anima-Base",
+    "cache_dir": "./Cache_Data/cached_data_anima",
+    "output_dir": "./Outputs/anima_lora_output",
     "precision": "bf16",
     "total_steps": 1500,
     "batch_size": 1,
@@ -89,7 +90,7 @@ else:
     cfg = {}
     print("[!] " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID          = cfg.get("model_id",          DEFAULTS["model_id"])
+MODEL_ID          = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 # "nf4": atención y MLP en 4 bits (~1.2 GB en vez de ~3.6 GB) para GPUs de 4 GB.
 PRECISION         = "nf4" if cfg.get("precision", DEFAULTS["precision"]) == "nf4" else "bf16"
 TOTAL_STEPS       = cfg.get("total_steps",       DEFAULTS["total_steps"])
@@ -130,12 +131,8 @@ PREVIEW_CUSTOM_PROMPT = cfg.get("preview_custom_prompt", DEFAULTS["preview_custo
 TRIGGER_WORD      = cfg.get("trigger_word", "")
 PROJECT_NAME      = cfg.get("project_name", "").strip()
 
-if PROJECT_NAME:
-    CACHE_DIR  = f"./cached_data_anima_{PROJECT_NAME}"
-    OUTPUT_DIR = f"./anima_lora_output_{PROJECT_NAME}"
-else:
-    CACHE_DIR  = cfg.get("cache_dir",  DEFAULTS["cache_dir"])
-    OUTPUT_DIR = cfg.get("output_dir", DEFAULTS["output_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_anima_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./anima_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("output_dir"), DEFAULTS["output_dir"]))
 
 print(f"  {t('Model ID'):<22}: {MODEL_ID}")
 print(f"  {t('Precision'):<22}: {PRECISION.upper()}")

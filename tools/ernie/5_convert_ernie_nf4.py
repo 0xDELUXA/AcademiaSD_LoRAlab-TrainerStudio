@@ -4,8 +4,8 @@ import gc, json, os, shutil
 import torch
 from safetensors.torch import save_file
 
-RAW = "Ernie-Raw"
-OUT = "Ernie-NF4"
+RAW = "Models/Ernie-Raw"
+OUT = "Models/Ernie-NF4"
 DTYPE = torch.bfloat16
 
 def free():
@@ -70,7 +70,7 @@ def quantize_text_encoder():
 
 def main():
     if not torch.cuda.is_available(): raise RuntimeError("CUDA is required for NF4 conversion.")
-    if not os.path.isfile(os.path.join(RAW,"transformer","config.json")): raise FileNotFoundError("ERNIE Diffusers raw model is missing. Download baidu/ERNIE-Image into Ernie-Raw first.")
+    if not os.path.isfile(os.path.join(RAW,"transformer","config.json")): raise FileNotFoundError("ERNIE Diffusers raw model is missing. Download baidu/ERNIE-Image into Models/Ernie-Raw first.")
     os.makedirs(OUT,exist_ok=True)
     # Keep the Diffusers pipeline's non-weight components; PE (prompt enhancer) is not used for training.
     for name in os.listdir(RAW):

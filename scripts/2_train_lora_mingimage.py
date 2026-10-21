@@ -34,6 +34,7 @@ from safetensors.torch import save_file, load
 from bitsandbytes.nn import Linear4bit
 from i18n import t
 import lora_options
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 
 # El VAE de Ming (RGBA, 16 canales) tampoco está en diffusers: viene del repo oficial.
 from mingimage_model import load_nf4_transformer
@@ -51,9 +52,9 @@ except Exception:
 HF_REPO_ID = "AcademiaSD/Ming-Image-NF4-for-LoRA-Training"
 
 DEFAULTS = {
-    "model_id": "Ming-Image_NF4",
-    "cache_dir": "./cached_data_mingimage",
-    "output_dir": "./mingimage_lora_output",
+    "model_id": "Models/Ming-Image_NF4",
+    "cache_dir": "./Cache_Data/cached_data_mingimage",
+    "output_dir": "./Outputs/mingimage_lora_output",
     "total_steps": 1500,
     "batch_size": 1,
     "grad_accum_steps": 4,
@@ -96,7 +97,7 @@ else:
     cfg = {}
     print("[!] " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID          = cfg.get("model_id",          DEFAULTS["model_id"])
+MODEL_ID          = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 TOTAL_STEPS       = cfg.get("total_steps",       DEFAULTS["total_steps"])
 BATCH_SIZE        = cfg.get("batch_size",        DEFAULTS["batch_size"])
 GRAD_ACCUM_STEPS  = cfg.get("grad_accum_steps",  DEFAULTS["grad_accum_steps"])
@@ -135,12 +136,8 @@ PREVIEW_CUSTOM_PROMPT = cfg.get("preview_custom_prompt", DEFAULTS["preview_custo
 TRIGGER_WORD      = cfg.get("trigger_word", "")
 PROJECT_NAME      = cfg.get("project_name", "").strip()
 
-if PROJECT_NAME:
-    CACHE_DIR  = f"./cached_data_mingimage_{PROJECT_NAME}"
-    OUTPUT_DIR = f"./mingimage_lora_output_{PROJECT_NAME}"
-else:
-    CACHE_DIR  = cfg.get("cache_dir",  DEFAULTS["cache_dir"])
-    OUTPUT_DIR = cfg.get("output_dir", DEFAULTS["output_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./Cache_Data/cached_data_mingimage_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./Outputs/mingimage_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("output_dir"), DEFAULTS["output_dir"]))
 
 print(f"  {t('Model ID'):<22}: {MODEL_ID}")
 print(f"  {t('Project Name'):<22}: {PROJECT_NAME if PROJECT_NAME else t('(Default)')}")

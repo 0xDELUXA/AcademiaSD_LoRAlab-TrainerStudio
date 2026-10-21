@@ -33,9 +33,9 @@ from safetensors import safe_open
 from safetensors.torch import save_file
 from transformers import AutoModel, BitsAndBytesConfig
 
-T2I_DIR = sys.argv[1] if len(sys.argv) > 1 else "./Qwen-Image-2512"
-EDIT_DIR = sys.argv[2] if len(sys.argv) > 2 else "./Qwen-Image-Edit-2511"
-OUTPUT_DIR = sys.argv[3] if len(sys.argv) > 3 else "./Qwen-Image-2512-NF4"
+T2I_DIR = sys.argv[1] if len(sys.argv) > 1 else "./Models/Qwen-Image-2512"
+EDIT_DIR = sys.argv[2] if len(sys.argv) > 2 else "./Models/Qwen-Image-Edit-2511"
+OUTPUT_DIR = sys.argv[3] if len(sys.argv) > 3 else "./Models/Qwen-Image-2512-NF4"
 # Solo el transformer (p. ej. para añadir Edit-2511 a una salida que ya tiene el text encoder).
 SKIP_TEXT_ENCODER = os.environ.get("SKIP_TEXT_ENCODER") == "1"
 

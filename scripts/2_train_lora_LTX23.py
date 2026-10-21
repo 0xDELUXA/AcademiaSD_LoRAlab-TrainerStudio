@@ -54,6 +54,7 @@ from safetensors import safe_open
 from safetensors.torch import save_file, load_file
 from PIL import Image
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 
 # La GUI busca "<Paso> N/Total" en la consola para saber por qué paso va.
@@ -83,9 +84,9 @@ ACTIVATION_OFFLOAD_ACTIVE = False
 # CONFIG
 # ===========================================================================
 DEFAULTS = {
-    "model_id": "./LTX23-NF4",
-    "cache_dir": "./cached_data_ltx23",
-    "output_dir": "./ltx23_lora_output",
+    "model_id": "Models/LTX23-NF4",
+    "cache_dir": "./Cache_Data/cached_data_ltx23",
+    "output_dir": "./Outputs/ltx23_lora_output",
 
     "total_steps": 800,
     "batch_size": 1,
@@ -186,7 +187,7 @@ def _cfg_bool(key, default):
     return bool(value)
 
 
-MODEL_ID = str(cfg_get("model_id", DEFAULTS["model_id"])).strip()
+MODEL_ID = str(resolve_model_dir(cfg_get("model_id", DEFAULTS["model_id"]), DEFAULTS["model_id"]))
 
 TOTAL_STEPS = int(cfg_get("total_steps", DEFAULTS["total_steps"]))
 BATCH_SIZE = int(cfg_get("batch_size", DEFAULTS["batch_size"]))
@@ -253,12 +254,8 @@ LOSS_CHUNK_ELEMENTS = int(cfg_get("loss_chunk_elements", DEFAULTS["loss_chunk_el
 if PREVIEW_MODE not in ("gen", "recon", "onestep"):
     PREVIEW_MODE = "gen"
 
-if PROJECT_NAME:
-    CACHE_DIR = "./cached_data_ltx23_{}".format(PROJECT_NAME)
-    OUTPUT_DIR = "./ltx23_lora_output_{}".format(PROJECT_NAME)
-else:
-    CACHE_DIR = str(cfg_get("cache_dir", DEFAULTS["cache_dir"])).strip()
-    OUTPUT_DIR = str(cfg_get("output_dir", DEFAULTS["output_dir"])).strip()
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_ltx23_{PROJECT_NAME}" if PROJECT_NAME else cfg_get("cache_dir"), DEFAULTS["cache_dir"]))
+OUTPUT_DIR = str(resolve_output_dir(f"./ltx23_lora_output_{PROJECT_NAME}" if PROJECT_NAME else cfg_get("output_dir"), DEFAULTS["output_dir"]))
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -338,7 +335,7 @@ def get_hf_token():
 
 
 def ensure_ltx23_model_downloaded(local_path):
-    local_path = str(local_path or "./LTX23-NF4")
+    local_path = str(local_path or "./Models/LTX23-NF4")
 
     has_base = os.path.exists(os.path.join(local_path, "model_index.json"))
     has_nf4 = os.path.exists(os.path.join(local_path, "index.json"))
