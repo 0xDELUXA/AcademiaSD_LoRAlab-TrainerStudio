@@ -1095,7 +1095,9 @@
                     } else if (target === 'export') {
                         document.getElementById('export_models_dir').value = data.path;
                     }
-                } else if (data.status === 'error') {
+                } else {
+                    // 'cancelled' (se cerro el dialogo nativo) o 'error' (no hay dialogo
+                    // nativo): se abre el explorador web, que siempre funciona.
                     openFolderBrowserWeb(target, currentPath);
                 }
             } catch (e) {
@@ -1117,7 +1119,7 @@
                 dataset_path: document.getElementById('dataset_path').value,
                 style_prompt: document.getElementById('precache_style_prompt').value.trim(),
                 cache_dir: document.getElementById('precache_cache_dir').value,
-                preview_custom_prompt: document.getElementById('train_preview_custom_prompt').value.trim()
+                preview_custom_prompt: document.getElementById('train_preview_custom_prompt').value.trim(),
                 regularizer: document.getElementById('precache_regularizer').checked
             };
             const res = await fetch('/api/save-precache', { method: 'POST', body: JSON.stringify(precacheData) });

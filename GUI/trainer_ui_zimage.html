@@ -1064,7 +1064,9 @@
                     } else if (target === 'export') {
                         document.getElementById('export_models_dir').value = data.path;
                     }
-                } else if (data.status === 'error') {
+                } else {
+                    // 'cancelled' (se cerro el dialogo nativo) o 'error' (no hay dialogo
+                    // nativo): se abre el explorador web, que siempre funciona.
                     openFolderBrowserWeb(target, currentPath);
                 }
             } catch (e) {

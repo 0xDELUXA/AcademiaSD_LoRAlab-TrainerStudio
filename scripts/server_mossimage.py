@@ -242,6 +242,15 @@ def select_file_native():
             root = tk.Tk()
             root.withdraw()
             root.attributes('-topmost', True)
+            # Sin esto el dialogo sale detras de la ventana del navegador y parece
+            # que el boton no hace nada.
+            # Without this the dialog opens behind the browser window and the button
+            # looks like it does nothing.
+            try:
+                root.update()
+                root.focus_force()
+            except Exception:
+                pass
             chosen = filedialog.askopenfilename(
                 title=t("Select Image"),
                 initialdir=initial_dir,
@@ -296,6 +305,15 @@ def select_folder_native():
             root = tk.Tk()
             root.withdraw()
             root.attributes('-topmost', True)
+            # Sin esto el dialogo sale detras de la ventana del navegador y parece
+            # que el boton no hace nada.
+            # Without this the dialog opens behind the browser window and the button
+            # looks like it does nothing.
+            try:
+                root.update()
+                root.focus_force()
+            except Exception:
+                pass
 
             chosen = filedialog.askdirectory(
                 title=t("Select Folder"),
