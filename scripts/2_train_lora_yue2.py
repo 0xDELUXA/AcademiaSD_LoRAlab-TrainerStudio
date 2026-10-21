@@ -65,6 +65,7 @@ import torch.nn.functional as F
 from peft import LoraConfig, get_peft_model, get_peft_model_state_dict, set_peft_model_state_dict
 from safetensors.torch import save_file, load, safe_open
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 import lora_options
 
 STEP_WORD = t("Step")
@@ -76,9 +77,11 @@ except Exception:
     pass
 
 STUDIO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NF4_DIR = os.path.join(STUDIO_ROOT, "YuE2-3B_NF4")
-RAW_DIR = os.path.join(STUDIO_ROOT, "YuE2-3B_Raw")
-RAW_VAE_DIR = os.path.join(STUDIO_ROOT, "YuE2-Vae")
+# Los modelos viven en Models/ desde la migracion del layout.
+# The models live in Models/ since the layout migration.
+NF4_DIR = str(resolve_model_dir(None, "Models/YuE2-3B_NF4", STUDIO_ROOT))
+RAW_DIR = str(resolve_model_dir(None, "Models/YuE2-3B_Raw", STUDIO_ROOT))
+RAW_VAE_DIR = str(resolve_model_dir(None, "Models/YuE2-Vae", STUDIO_ROOT))
 try:
     with open(os.path.join(STUDIO_ROOT, "settings", "train_settings_yue2.json"), "r", encoding="utf-8") as _f:
         _precision_hint = str(json.load(_f).get("precision", "bf16")).lower()
@@ -97,9 +100,9 @@ from yue2.tokenization_yue2 import YuE2TextTokenizer
 from modeling_yue2 import sdpa  # el sdpa del modeling (native GQA), mismas matemáticas que el wheel
 
 DEFAULTS = {
-    "model_id": "YuE2-3B_Raw",
-    "cache_dir": "./cached_data_yue2",
-    "output_dir": "./yue2_lora_output",
+    "model_id": "Models/YuE2-3B_Raw",
+    "cache_dir": "./Cache_Data/cached_data_yue2",
+    "output_dir": "./Outputs/yue2_lora_output",
     "stage": "nar",              # nar | ar | both
     "precision": "bf16",         # bf16 | nf4 (el NF4 se valida contra BF16 en Fase 6)
     "total_steps": 1200,
@@ -186,11 +189,13 @@ PREVIEW_CUSTOM   = str(_g("preview_custom_prompt")).strip()
 PROJECT_NAME     = str(_g("project_name")).strip()
 
 if PROJECT_NAME:
-    CACHE_DIR  = f"./cached_data_yue2_{PROJECT_NAME}"
-    OUTPUT_DIR = f"./yue2_lora_output_{PROJECT_NAME}"
+    CACHE_DIR  = str(resolve_cache_dir(f"./Cache_Data/cached_data_yue2_{PROJECT_NAME}",
+                                      DEFAULTS["cache_dir"]))
+    OUTPUT_DIR = str(resolve_output_dir(f"./Outputs/yue2_lora_output_{PROJECT_NAME}",
+                                       DEFAULTS["output_dir"]))
 else:
-    CACHE_DIR  = str(_g("cache_dir"))
-    OUTPUT_DIR = str(_g("output_dir"))
+    CACHE_DIR  = str(resolve_cache_dir(_g("cache_dir"), DEFAULTS["cache_dir"]))
+    OUTPUT_DIR = str(resolve_output_dir(_g("output_dir"), DEFAULTS["output_dir"]))
 
 # Parámetros de sampling del release para LOS CÓDIGOS y previews (fase semántica)
 with open(os.path.join(MODEL_DIR, "yue2_generation_config.json"), encoding="utf-8") as _gf:
@@ -388,7 +393,7 @@ def is_quantized(name):
                                      "model.embed_tokens", "latent_pos_embed")))
 
 
-NF4_DIR = os.path.join(STUDIO_ROOT, "YuE2-3B_NF4")   # caché del conversor NF4 (Fase 5)
+NF4_DIR = str(resolve_model_dir(None, "Models/YuE2-3B_NF4", STUDIO_ROOT))   # caché del conversor NF4 (Fase 5)
 
 
 def load_nf4_backbone():

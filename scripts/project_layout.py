@@ -58,6 +58,16 @@ LEGACY_MODEL_NAMES = (
     "Captioner-Qwen3-VL-8B",
     "Qwen3-VL-4B-Instruct",
     "MelBandRoFormer",
+    # YuE2-3B (al final, para que la union con main no toque las demas lineas)
+    # YuE2-3B (at the end, so the merge with main does not touch the other lines)
+    "YuE2-3B_NF4",
+    "YuE2-3B_Raw",
+    "MERT-v2-FullSong",
+    "YuE2-RealAudio-Head",
+    "YuE2-Vae",
+    "YuE2-Vae-legacy",
+    "Qwen3-ASR",
+    "SheetSage2",
 )
 
 CACHE_NAME_ALIASES = {
@@ -87,6 +97,7 @@ OUTPUT_NAME_PREFIXES = (
     "qwen_image21_lora_output",
     "qwenimage2512_lora_output",
     "sdxl_lora_output",
+    "yue2_lora_output",
     "zimage_lora_output",
 )
 

@@ -17,6 +17,13 @@ Créditos / credits:
 import os
 import shutil
 import subprocess
+import sys
+
+# El layout del estudio / the studio layout
+_SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from project_layout import resolve_model_dir
 
 import numpy as np
 import torch
@@ -50,11 +57,11 @@ class Tok(nn.Module):
 def ensure_models(base_dir, token=None):
     """Baja (una vez) MERT-v2-FullSong (~1.3 GB) y el head (~86 MB) en revisiones fijas."""
     from huggingface_hub import hf_hub_download, snapshot_download
-    mert_dir = os.path.join(base_dir, "MERT-v2-FullSong")
+    mert_dir = str(resolve_model_dir(None, "Models/MERT-v2-FullSong", base_dir))
     if not os.path.isfile(os.path.join(mert_dir, "model.safetensors")):
         snapshot_download(MERT_REPO, revision=MERT_REV, local_dir=mert_dir, token=token,
                           allow_patterns=["*.json", "*.py", "model.safetensors", "LICENSE", "THIRD_PARTY_NOTICES.md"])
-    head_dir = os.path.join(base_dir, "YuE2-RealAudio-Head")
+    head_dir = str(resolve_model_dir(None, "Models/YuE2-RealAudio-Head", base_dir))
     if not os.path.isfile(os.path.join(head_dir, HEAD_FILE)):
         hf_hub_download(HEAD_REPO, HEAD_FILE, revision=HEAD_REV, local_dir=head_dir, token=token)
     return mert_dir, os.path.join(head_dir, HEAD_FILE)

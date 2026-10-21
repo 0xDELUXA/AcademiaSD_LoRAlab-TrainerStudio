@@ -48,6 +48,7 @@ import json
 
 import numpy as np
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -62,10 +63,12 @@ if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
 
 STUDIO_ROOT = os.path.dirname(SCRIPTS_DIR)          # .../LoRAlab-TrainerStudio
-NF4_DIR = os.path.join(STUDIO_ROOT, "YuE2-3B_NF4")
-RAW_DIR = os.path.join(STUDIO_ROOT, "YuE2-3B_Raw")
+# Los modelos viven en Models/ desde la migracion del layout.
+# The models live in Models/ since the layout migration.
+NF4_DIR = str(resolve_model_dir(None, "Models/YuE2-3B_NF4", STUDIO_ROOT))
+RAW_DIR = str(resolve_model_dir(None, "Models/YuE2-3B_Raw", STUDIO_ROOT))
 RAW_REPO_ID = "m-a-p/YuE2-3B"
-RAW_VAE_DIR = os.path.join(STUDIO_ROOT, "YuE2-Vae")
+RAW_VAE_DIR = str(resolve_model_dir(None, "Models/YuE2-Vae", STUDIO_ROOT))
 RAW_VAE_REPO_ID = "m-a-p/YuE2-Vae"
 NF4_REPO_ID = "AcademiaSD/YuE2-3B-NF4-for-LoRA-Training"
 TRAIN_CONFIG_PATH = os.path.join(STUDIO_ROOT, "settings", "train_settings_yue2.json")
@@ -90,7 +93,7 @@ CACHE_FORMAT_VERSION = 1
 
 DEFAULTS = {
     "dataset_path": "./dataset",
-    "cache_dir": "./cached_data_yue2",
+    "cache_dir": "./Cache_Data/cached_data_yue2",
     "project_name": "",
     "style_prompt": "",
     "cot": "off",            # off | melody | full
@@ -175,7 +178,9 @@ FORCE_GPU = bool(cfg.get("force_gpu", True))
 if COT not in ("off", "melody", "full"):
     print("[!] " + t("Unknown cot '{c}': must be off, melody or full. Using off.", c=COT))
     COT = "off"
-CACHE_DIR = (f"./cached_data_yue2_{PROJECT_NAME}" if PROJECT_NAME else str(cfg["cache_dir"]))
+CACHE_DIR = str(resolve_cache_dir(
+    f"./Cache_Data/cached_data_yue2_{PROJECT_NAME}" if PROJECT_NAME else cfg["cache_dir"],
+    DEFAULTS["cache_dir"]))
 
 print(f"  {t('Dataset Path'):<22}: {os.path.abspath(DATASET_PATH)}")
 print(f"  {t('Cache Dir'):<22}: {os.path.abspath(CACHE_DIR)}")

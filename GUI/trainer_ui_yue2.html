@@ -366,7 +366,7 @@
 
                     <div class="form-group">
                         <label>Cache Folder (Auto):</label>
-                        <input type="text" id="precache_cache_dir" value="./cached_data_yue2" readonly title="Path generated automatically, for information">
+                        <input type="text" id="precache_cache_dir" value="./Cache_Data/cached_data_yue2" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-group">
@@ -449,7 +449,7 @@
                 <div class="panel-body">
                     <div class="form-group">
                         <label>Output Dir (Auto):</label>
-                        <input type="text" id="train_output_dir" value="./yue2_lora_output" readonly title="Path generated automatically, for information">
+                        <input type="text" id="train_output_dir" value="./Outputs/yue2_lora_output" readonly title="Path generated automatically, for information">
                     </div>
 
                     <div class="form-group" title="NAR learns vocal timbre, voice identity, instruments and production texture from sound descriptions. AR learns lyric phrasing and semantic song structure from lyrics or a plan. Both trains NAR first, then reloads the base model from disk and trains AR. Pre-Cache extracts the semantic codes of your real audio (MERT-v2 + a community tokenizer head, since m-a-p has not released theirs): NAR learns to render them like ComfyUI does, AR learns to write them. AR memorizes your songs past ~1500 steps. The NAR LoRA loads in ComfyUI with Load LoRA (model only). Stage is fixed when training starts.">
@@ -902,8 +902,8 @@
 
         function updateProjectPaths() {
             const proj = document.getElementById('project_name').value.trim();
-            const cacheDir = proj ? `./cached_data_yue2_${proj}` : './cached_data_yue2';
-            const outputDir = proj ? `./yue2_lora_output_${proj}` : './yue2_lora_output';
+            const cacheDir = proj ? `./Cache_Data/cached_data_yue2_${proj}` : './Cache_Data/cached_data_yue2';
+            const outputDir = proj ? `./Outputs/yue2_lora_output_${proj}` : './Outputs/yue2_lora_output';
             
             document.getElementById('precache_cache_dir').value = cacheDir;
             document.getElementById('train_output_dir').value = outputDir;

@@ -54,9 +54,13 @@ from bitsandbytes.nn import Linear4bit, Params4bit
 from bitsandbytes.functional import QuantState
 from accelerate import init_empty_weights
 
-RAW_DIR = os.path.join(STUDIO_ROOT, "YuE2-3B_Raw")
-VAE_DIR = os.path.join(STUDIO_ROOT, "YuE2-Vae")
-OUTPUT_DIR = os.path.join(STUDIO_ROOT, "YuE2-3B_NF4")
+from project_layout import resolve_model_dir
+
+# Los modelos viven en Models/ desde la migracion del layout.
+# The models live in Models/ since the layout migration.
+RAW_DIR = str(resolve_model_dir(None, "Models/YuE2-3B_Raw", STUDIO_ROOT))
+VAE_DIR = str(resolve_model_dir(None, "Models/YuE2-Vae", STUDIO_ROOT))
+OUTPUT_DIR = str(resolve_model_dir(None, "Models/YuE2-3B_NF4", STUDIO_ROOT))
 REPO_ID = "AcademiaSD/YuE2-3B-NF4-for-LoRA-Training"
 
 DTYPE = torch.bfloat16
