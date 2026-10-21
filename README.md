@@ -689,7 +689,6 @@ The code is released under the **MIT License**. The models keep their own licens
 | Pony Diffusion V6 XL, Illustrious XL v0.1, NoobAI-XL 1.1 | Fair AI Public License 1.0-SD |
 | Juggernaut XI v11 | CC BY-NC-ND 4.0 — non-commercial |
 | Qwen3-VL-4B (MiniMax-H3 captioner) | Apache 2.0 |
-| YuE2-3B (and the YuE2-VAE) | CC BY-NC 4.0 — non-commercial; LoRAs are model derivatives under the same license |
 
 Built with PyTorch, Diffusers, Transformers, PEFT, bitsandbytes, Flask and the Hugging Face Hub.
 
@@ -707,7 +706,6 @@ Code adapted or copied from other projects, and the work it builds on:
 | :--- | :--- | :--- |
 | [Fizgig](https://github.com/shootthesound/Fizgig) by [@shootthesound](https://github.com/shootthesound) | MiniMax H3 sigma sampling (`sample_sigmas`) and the video VAE encoder (`MiniMaxH3VideoVAEEncoder`), adapted | Apache-2.0 |
 | [ComfyUI](https://github.com/Comfy-Org/ComfyUI) | Origin of the MiniMax H3 video VAE that Fizgig ported; native layer names and LoRA layouts the exports follow | GPL-3.0 |
-| [YuE2 real-audio tokenizer head](https://huggingface.co/Mothersuperior/yue2-mothersuperior-realaudio-tokenizer-v4) by Mothersuperior, with [MERT-v2-FullSong](https://huggingface.co/m-a-p/MERT-v2-FullSong) by m-a-p | YuE2 semantic codes from real audio; the head architecture in `scripts/yue2/real_codes.py` is adapted from its `scripts/train_v2.py` | CC BY-NC 4.0 |
 | [DiffSynth-Studio](https://github.com/modelscope/DiffSynth-Studio) by ModelScope | Boogu Image Edit model, pipeline and training module; `scripts/boogu_diffsynth_train.py` is adapted from its `examples/boogu_image/model_training/train.py` | Apache-2.0 |
 | [Diffusers](https://github.com/huggingface/diffusers) | Model classes and pipelines; MiniMax H3 audio positions copied from `build_packed_sequence`; Qwen-Image prompt templates, latent packing and edit sizes from `QwenImagePipeline` / `QwenImageEditPlusPipeline`, followed in `scripts/qwen_image2512_model.py` | Apache-2.0 |
 | [Mel-Band-Roformer-Vocal-Model](https://github.com/KimberleyJensen/Mel-Band-Roformer-Vocal-Model) by KimberleyJensen | `scripts/melband/mel_band_roformer.py`, vendored with its source header (vocal separation for MiniMax H3 audio datasets) | not stated |
