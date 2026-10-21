@@ -598,7 +598,7 @@ def save_train():
         previous = read_json_file(TRAIN_CONFIG, {})
 
         # 1. Guardar en raíz con nombre genérico
-        write_json_file(TRAIN_CONFIG, data)
+        write_json_file(TRAIN_CONFIG, {**read_json_file(TRAIN_CONFIG, {}), **data})
 
         # El Pre-Cache codifica el prompt y la imagen de las previews desde su propio json.
         precache_cfg = read_json_file(PRECACHE_CONFIG, {})

@@ -562,7 +562,11 @@ def save_train():
         # Lo que había antes: con el entrenamiento en marcha, la GUI avisa solo de lo que ha cambiado.
         previous = read_json_file(TRAIN_CONFIG, {})
 
-        write_json_file(TRAIN_CONFIG, data)
+        # Se fusiona con lo que ya habia: la GUI solo manda unos campos y las opciones
+        # que no estan en el formulario (timestep_sampling, max_grad_norm...) se perderian.
+        # It is merged with what was there: the GUI only sends some fields and the options
+        # that are not in the form would be lost.
+        write_json_file(TRAIN_CONFIG, {**read_json_file(TRAIN_CONFIG, {}), **data})
 
         # El Pre-Cache codifica el prompt de las previews desde su propio json.
         precache_cfg = read_json_file(PRECACHE_CONFIG, {})
