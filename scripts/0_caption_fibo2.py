@@ -33,6 +33,7 @@ import warnings
 
 import torch
 from PIL import Image
+from huggingface_hub import snapshot_download
 from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 from i18n import t
 
