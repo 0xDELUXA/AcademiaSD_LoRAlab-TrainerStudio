@@ -1814,6 +1814,7 @@
                 }
                 if (data.train) {
                     const t = data.train;
+                    lastTrainSaved = { ...t };
                     if (t.total_steps) document.getElementById('train_total_steps').value = t.total_steps;
                     if (t.lr) document.getElementById('train_lr').value = t.lr;
                     if (t.lr_scheduler) document.getElementById('train_lr_scheduler').value = t.lr_scheduler;
@@ -2050,6 +2051,10 @@
                     if (perfil && perfil.value) applyVramProfile(perfil.value);
                 } catch (e) {}
                 const listStr = data.all_saved ? data.all_saved.join('\n • ') : data.file;
+                // Con el entrenamiento en marcha se dice qué ha cambiado y cuándo lo aplica el trainer.
+                const running = document.getElementById('status-badge').classList.contains('badge-running');
+                const live = running ? '\n\n' + liveChangesText(data.previous || lastTrainSaved, trainData, LIVE_APPLY) : '';
+                lastTrainSaved = { ...trainData };
                 toast('✓ ' + t('Pre-Cache settings saved to:') + `\n • ${listStr}`, 'success');
             }
         }
@@ -2080,6 +2085,27 @@
                 + (document.getElementById('train_use_loraplus').checked ? '_plus' : '');
             el.value = base + sfx + '.safetensors';
         }
+
+        // Save JSON con el entrenamiento en marcha: cuándo aplica el trainer cada clave (-> id del campo).
+        // Sacado de su código: live: relee en el paso siguiente; resume: se leen al arrancar; restart: el checkpoint deja de encajar: no se puede reanudar.
+        const LIVE_APPLY = {
+            live: { lr: 'train_lr', save_every: 'train_save_every',
+                    preview_caption_mode: 'train_preview_caption_mode', preview_every: 'train_preview_every',
+                    preview_steps: 'train_preview_steps', preview_cfg: 'train_preview_cfg',
+                    preview_shift: 'train_preview_shift', preview_vae_device: 'train_preview_vae_device',
+                    preview_seed: 'train_preview_seed', debug_training: 'train_debug_training' },
+            resume: { trigger_word: 'trigger_word', total_steps: 'train_total_steps',
+                      lr_scheduler: 'train_lr_scheduler', warmup_steps: 'train_warmup_steps',
+                      lr_cycles: 'train_lr_cycles', lora_alpha: 'train_lora_alpha', batch_size: 'train_batch_size',
+                      grad_accum_steps: 'train_grad_accum', weight_decay: 'train_weight_decay',
+                      caption_dropout: 'train_caption_dropout', seed: 'train_seed',
+                      vram_budget_gb: 'train_vram_budget_gb', ram_limit_gb: 'train_ram_limit_gb',
+                      use_sage_attention: 'train_use_sage_attention', use_audio_loss: 'train_use_audio_loss',
+                      resident_blocks: 'train_resident_blocks', park_mode: 'train_park_mode',
+                      vram_swap_gb: 'train_vram_swap_gb', vram_headroom_gb: 'train_vram_headroom_gb',
+                      preview_custom_prompt: 'train_preview_custom_prompt' },
+            restart: { lora_rank: 'train_lora_rank', use_rslora: 'train_use_rslora', use_loraplus: 'train_use_loraplus' },
+        };
 
         async function saveTrainSettings() {
             const proj = document.getElementById('project_name').value.trim();
@@ -2139,7 +2165,7 @@
             const data = await res.json();
             if (data.status === 'ok') {
                 const listStr = data.all_saved ? data.all_saved.join('\n • ') : data.file;
-                toast('✓ ' + t('Train settings saved to:') + `\n • ${listStr}`, 'success');
+                toast('✓ ' + t('Train settings saved to:') + `\n • ${listStr}${live}`, 'success', running ? 12000 : 5000);
             }
         }
 

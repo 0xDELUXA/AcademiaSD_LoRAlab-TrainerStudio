@@ -33,6 +33,13 @@
       "run": "Run_LoRAlab-QwenImage21.bat"
     },
     {
+      "id": "fibo2",
+      "name": "Fibo 2.0",
+      "description": "Image and edit LoRAs (BRIA)",
+      "image": "assets/fibo2/portada.jpg",
+      "run": "Run_LoRAlab-Fibo2.bat"
+    },
+    {
       "id": "qwenimage2512",
       "name": "Qwen-Image 2512",
       "description": "Image LoRAs (2512) and edit LoRAs (Edit-2511)",
@@ -52,6 +59,13 @@
       "description": "Image LoRAs (also Z-Image-Turbo)",
       "image": "assets/zimage/portada.jpg",
       "run": "Run_LoRAlab-ZImage.bat"
+    },
+    {
+      "id": "mingimage",
+      "name": "Ming-Image",
+      "description": "Text-to-image LoRAs (transparent designs)",
+      "image": "assets/mingimage/portada.jpg",
+      "run": "Run_LoRAlab-MingImage.bat"
     },
     {
       "id": "anima",

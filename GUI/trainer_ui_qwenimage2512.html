@@ -967,6 +967,7 @@
                 }
                 if (data.train) {
                     const t = data.train;
+                    lastTrainSaved = { ...t };
                     if (t.total_steps) document.getElementById('train_total_steps').value = t.total_steps;
                     if (t.lr) document.getElementById('train_lr').value = t.lr;
                     if (t.lr_scheduler) document.getElementById('train_lr_scheduler').value = t.lr_scheduler;
@@ -1298,6 +1299,22 @@
             document.getElementById('train_lr_cycles_group').style.display = sched === 'cosine_with_restarts' ? '' : 'none';
         }
 
+        // Save JSON con el entrenamiento en marcha: cuándo aplica el trainer cada clave (-> id del campo).
+        // Sacado de su código: live: relee en el paso siguiente; resume: se leen al arrancar; new: al reanudar se sigue con el LoRA del checkpoint.
+        const LIVE_APPLY = {
+            live: { total_steps: 'train_total_steps', lr: 'train_lr', use_turbo: 'train_use_turbo',
+                    turbo_lora_strength: 'train_turbo_strength', save_every: 'train_save_every', seed: 'train_seed',
+                    preview_every: 'train_preview_every', preview_caption_mode: 'train_preview_caption_mode',
+                    preview_custom_prompt: 'train_preview_custom_prompt', preview_edit_image: 'preview_edit_image',
+                    preview_steps: 'train_preview_steps', preview_cfg: 'train_preview_cfg' },
+            resume: { trigger_word: 'trigger_word', lr_scheduler: 'train_lr_scheduler',
+                      warmup_steps: 'train_warmup_steps', lr_cycles: 'train_lr_cycles', base_model: 'train_base_model',
+                      blocks_on_gpu: 'train_blocks_on_gpu', batch_size: 'train_batch_size',
+                      grad_accum_steps: 'train_grad_accum' },
+            new: { lora_rank: 'train_lora_rank', lora_alpha: 'train_lora_alpha', use_rslora: 'train_use_rslora',
+                   use_loraplus: 'train_use_loraplus', lora_targets: 'train_lora_targets' },
+        };
+
         async function saveTrainSettings() {
             const proj = document.getElementById('project_name').value.trim();
             const trainData = {
@@ -1341,14 +1358,14 @@
             setEncodingState(data.encoding, data.encoding_device);
             if (data.status === 'ok') {
                 const listStr = data.all_saved ? data.all_saved.join('\n • ') : data.file;
-                // Con el entrenamiento en marcha, el trainer aplica los ajustes en caliente en el paso siguiente.
-                const live = document.getElementById('status-badge').classList.contains('badge-running')
-                    ? '\n\n' + t('Training is running: steps, save/preview every, preview settings, caption mode, prompt, turbo and LR apply on the next step. Rank, alpha, batch and resolution need Stop -> Resume.')
-                    : '';
+                // Con el entrenamiento en marcha se dice qué ha cambiado y cuándo lo aplica el trainer.
+                const running = document.getElementById('status-badge').classList.contains('badge-running');
+                const live = running ? '\n\n' + liveChangesText(data.previous || lastTrainSaved, trainData, LIVE_APPLY) : '';
+                lastTrainSaved = { ...trainData };
                 const encoding = data.encoding
                     ? '\n\n' + t('The preview prompt/image is being encoded on {device}. Start/Resume and Stop are disabled until it finishes.', { device: data.encoding_device })
                     : '';
-                toast('✓ ' + t('Train settings saved to:') + `\n • ${listStr}${live}${encoding}`, 'success');
+                toast('✓ ' + t('Train settings saved to:') + `\n • ${listStr}${live}${encoding}`, 'success', running ? 12000 : 5000);
             }
             return data;
         }
