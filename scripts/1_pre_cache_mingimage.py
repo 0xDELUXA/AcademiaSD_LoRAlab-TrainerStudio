@@ -25,6 +25,7 @@ import torchvision.transforms.functional as F_vision
 from PIL import Image
 
 from i18n import t
+from project_layout import resolve_cache_dir, resolve_model_dir, resolve_output_dir
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -60,9 +61,9 @@ TEXT_ENCODER_MODES = ("NF4", "BF16")
 
 # ── DEFAULTS / VALORES POR DEFECTO ──────────────────────────────────────────
 DEFAULTS = {
-    "model_id": "Ming-Image_NF4",
+    "model_id": "Models/Ming-Image_NF4",
     "dataset_path": "./dataset",
-    "cache_dir": "./cached_data_mingimage",
+    "cache_dir": "./Cache_Data/cached_data_mingimage",
     "target_area": 768 * 768,
     "max_side": 1280,
     "multiple": 32,
@@ -86,7 +87,7 @@ else:
     cfg = {}
     print("⚠ " + t("{path} not found, using default values.", path=CONFIG_PATH))
 
-MODEL_ID     = cfg.get("model_id",     DEFAULTS["model_id"])
+MODEL_ID     = str(resolve_model_dir(cfg.get("model_id"), DEFAULTS["model_id"]))
 DATASET_PATH = cfg.get("dataset_path", DEFAULTS["dataset_path"])
 TARGET_AREA  = cfg.get("target_area",  DEFAULTS["target_area"])
 MAX_SIDE     = cfg.get("max_side",     DEFAULTS["max_side"])
@@ -99,10 +100,7 @@ LORA_TYPE    = "edit" if cfg.get("lora_type", DEFAULTS["lora_type"]) == "edit" e
 PREVIEW_EDIT_IMAGE = cfg.get("preview_edit_image", "").strip() if LORA_TYPE == "edit" else ""
 
 # Formato automático de carpeta de caché según nombre del proyecto
-if PROJECT_NAME:
-    CACHE_DIR = f"./cached_data_mingimage_{PROJECT_NAME}"
-else:
-    CACHE_DIR = cfg.get("cache_dir", DEFAULTS["cache_dir"])
+CACHE_DIR = str(resolve_cache_dir(f"./cached_data_mingimage_{PROJECT_NAME}" if PROJECT_NAME else cfg.get("cache_dir"), DEFAULTS["cache_dir"]))
 
 # VAE 8x + parches 2x2 en el transformer: múltiplos de 16 px como mínimo; se usa 32 o 64.
 if MULTIPLE not in (32, 64):
