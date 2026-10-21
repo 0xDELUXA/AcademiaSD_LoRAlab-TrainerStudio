@@ -1,4 +1,4 @@
-# AcademiaSD LoRAlab Trainer Studio 2.01
+# AcademiaSD LoRAlab Trainer Studio
 
 <p align="center">
   <img src="assets/launcher_LoRAlab.jpg" alt="AcademiaSD LoRAlab Trainer Studio" width="900">
@@ -276,7 +276,7 @@ All times were measured on an RTX 5080 16 GB.
 
 - **Normal LoRAs** (characters, objects, styles): one image + one caption each.
 - **Edit LoRAs**: pairs named `name_before.png` / `name_after.png` plus the instruction in `name.txt` (for example `replace the jacket with a red leather one`). Choose **LoRA Type → Edit**. The before image goes through the text encoder with the instruction and, as a clean latent, conditions the generation as context tokens; the loss is computed only on the "after".
-- **The model:** `briaai/Fibo-2.0-dev`, the full non-distilled base (8.1 B, flow matching on the FLUX.2 VAE, Qwen3-VL-4B as text encoder). Its licence is **CC BY-NC 4.0**: non-commercial use only. Put the diffusers folder as `Fibo2_Dev-Raw/` next to the studio and run `tools/fibo2/5_conversor_Fibo2_NF4.py` once: it writes `Fibo2_Dev-NF4/` with the transformer in NF4 and the text encoder in BF16, INT8 and NF4. The conversion needs diffusers with `BriaFibo2Pipeline` (merged upstream): run `Update_LoRAlab-TrainerStudio.bat` first.
+- **The model:** `briaai/Fibo-2.0-dev`, the full non-distilled base (8.1 B, flow matching on the FLUX.2 VAE, Qwen3-VL-4B as text encoder). Its licence is **CC BY-NC 4.0**: non-commercial use only. The NF4 build is downloaded from `AcademiaSD/Fibo-2.0-NF4-for-LoRA-Training` the first time (the transformer in NF4 and the text encoder in BF16, INT8 or NF4); to build it yourself from the diffusers folder, run `tools/fibo2/5_conversor_Fibo2_NF4.py` once with the folder as `Fibo2_Dev-Raw/`. The conversion needs diffusers with `BriaFibo2Pipeline` (merged upstream): run `Update_LoRAlab-TrainerStudio.bat` first.
 - **NF4:** the attention, MLP and cross-attention of the 44 blocks are quantized (342 layers); the perceptor that turns the caption into gist tokens, the modulation of every block and the input/output layers stay in BF16 (73 layers), because quantizing them puts noise in the text path. The transformer is 5.2 GB in VRAM instead of 16 GB.
 - **Text encoder for the pre-cache:** Qwen3-VL-4B, the model's own — **NF4 (~2.7 GB, default)**, INT8, BF16 (9 GB+ VRAM) or BF16 with CPU offload (exact, any GPU). The pre-cache runs it once; the training never loads it.
 - **Captions:** Fibo 2.0 was trained on structured JSON captions (VGL). A plain `.txt` also works (the pipeline reads it as a short description); for the best results drop a `<name>.json` next to the image with the structured caption — the pre-cache prefers the `.json` over the `.txt`, and the Dataset Manager shows and edits whichever one is there. A `text_render` entry is drawn and shown to the model exactly as in training, so the text of the image comes out right; above the noise level 0.9 the caption goes in without those drawings, as in the official recipe.
@@ -542,6 +542,31 @@ Rank 16 matters for characters: with rank 8 the likeness is just as good, but th
 
 ---
 
+### YuE2-3B — song LoRAs (timbre NAR + semantic AR)
+
+YuE2-3B (m-a-p) is a **Mixture-of-Transformers**: every one of its 28 blocks carries two complete routes — an **AR** causal route that generates the semantic codec tokens, and a **NAR** route that does flow matching on the 64-dim audio latent. This trainer keeps them apart: choose **`nar` (default), `ar`, or `both`** in Training Settings. Each stage exports its own LoRA and only touches its own branch; `both` runs NAR first, reloads the base model from disk, then runs AR.
+
+- **Datasets:** songs (`.wav`, `.mp3`, `.flac`, …) with their lyrics in a `.txt` of the same name. The prepare pass re-encodes to **48 kHz stereo** and slices by silence into ≤30 s clips (`__cNN.wav`); a global `Style prompt` (and the optional `[Tags]`/`[Lyrics]` protocol) shapes every request.
+- **Real-audio codes:** m-a-p has not released YuE2's audio-to-code tokenizer, so Pre-Cache uses the community one: MERT-v2-FullSong layer 20 → Mothersuperior's tokenizer head (`v5_30k`) → one semantic code per 40 ms latent frame (`<cache>/_realcodes_<clip>.pt`, ~2.8 GB VRAM, ~1.4 GB downloaded once). It gets about 1 code in 5 exactly right, but rendering those codes with the base NAR keeps the song's voice timbre, harmony and structure.
+- **Stage = `nar`** (default) — voice identity, vocal timbre/register, instrument tone and production texture. It learns the VAE-latent velocity seeing the text prefix **plus the clip's real codes**, the same context ComfyUI gives it, so the LoRA acts where ComfyUI generates. It is exported in ComfyUI's native layout (`diffusion_model.model.layers.N.self_attn.qkv_proj`, `mlp.gate_up_proj`…, q/k/v and gate/up fused losslessly): load it with **Load LoRA (model only)**.
+- **Stage = `ar`** — lyrics, phrasing, vocal delivery timing and semantic song structure: cross-entropy on the clips' real codes. It memorizes the training songs past ~1500 steps.
+- **Stage = `both`** — NAR first, then a fresh base model from disk for AR: two exports, `YuE2_FINAL_LoRA.safetensors` (ComfyUI layout) + `YuE2_FINAL_AR_LoRA.safetensors` (ComfyUI layout for the CLIP side, `text_encoders.model.layers.N.self_attn.qkv_proj`…). In ComfyUI, load the NAR LoRA on the model and the AR LoRA with **Load LoRA** (clip strength).
+- **Previews** render short songs (codes → 32-step midpoint ODE → VAE decoder) as 48 kHz WAVs during training.
+- **NF4:** a pre-quantized backbone (`YuE2-3B_NF4`, built with `tools/yue2/5_conversor_YuE2_NF4.py`) loads in ~5 s at 3.1 GB; only the attention+MLP of both branches are quantized — the latent bridges (`llm2vae`/`vae2llm`/`time_embedder`), layernorms, embeddings and heads stay BF16. Without the cache the trainer quantizes the raw model on the fly.
+
+| Verified starting point | NAR (timbre) | AR (lyrics) |
+| :--- | :--- | :--- |
+| Rank / Alpha | 16 / 16 | 8 / 8 |
+| Learning rate | 3e-4 | 2e-4 |
+| Steps | 1200 | 600 |
+| VRAM (NF4, 30-32 s clips) | ~8 GB steady, peaks 8.7 GB | pending |
+
+Measured on an RTX 5080 with the Agila dataset (91 clips, rank 16/16, lr 3e-4): the NF4 backbone loads in 3.1 GB and the run holds **~8 GB of VRAM with brief peaks to ~8.7 GB** (preview ODE + VAE decode and checkpoint saves) — everything fits comfortably under 9 GB on a 16 GB card. Loss went 1.18 → 1.08 in 300 steps and → 1.056 by step 1200, dropping slowly and cleanly; exact-step resume reproduced the schedule mid-run (step 301 continues the same warmup/cosine curve).
+
+The NAR loss depends on the clips' latent amplitude (the latent is not normalized, std ≈ 1.07): ~2.3 at the start on short synthetic test clips, ~1.15 on real music (91 clips of a full album, 30–32 s). It falls slowly and cleanly: 1.18 → 1.08 in 300 steps and → 1.056 at 1200 (rank 16/16, lr 3e-4). Training holds **~8 GB of VRAM on a 16 GB card with the NF4 backbone** (brief peaks ~8.7 GB at preview decode and checkpoint save) and runs at ~0.4 s/step with 30 s clips; the BF16 backbone takes ~7.3 GB more of headroom (~1 s/step with 12 s clips). The initial AR CE is well below `ln(32768)` and drops steadily.
+
+---
+
 ## ☁️ RunPod
 
 No suitable GPU at home? Train in the cloud with the ready-made template:
@@ -641,6 +666,7 @@ The code is released under the **MIT License**. The models keep their own licens
 | Pony Diffusion V6 XL, Illustrious XL v0.1, NoobAI-XL 1.1 | Fair AI Public License 1.0-SD |
 | Juggernaut XI v11 | CC BY-NC-ND 4.0 — non-commercial |
 | Qwen3-VL-4B (MiniMax-H3 captioner) | Apache 2.0 |
+| YuE2-3B (and the YuE2-VAE) | CC BY-NC 4.0 — non-commercial; LoRAs are model derivatives under the same license |
 
 Built with PyTorch, Diffusers, Transformers, PEFT, bitsandbytes, Flask and the Hugging Face Hub.
 
@@ -658,6 +684,7 @@ Code adapted or copied from other projects, and the work it builds on:
 | :--- | :--- | :--- |
 | [Fizgig](https://github.com/shootthesound/Fizgig) by [@shootthesound](https://github.com/shootthesound) | MiniMax H3 sigma sampling (`sample_sigmas`) and the video VAE encoder (`MiniMaxH3VideoVAEEncoder`), adapted | Apache-2.0 |
 | [ComfyUI](https://github.com/Comfy-Org/ComfyUI) | Origin of the MiniMax H3 video VAE that Fizgig ported; native layer names and LoRA layouts the exports follow | GPL-3.0 |
+| [YuE2 real-audio tokenizer head](https://huggingface.co/Mothersuperior/yue2-mothersuperior-realaudio-tokenizer-v4) by Mothersuperior, with [MERT-v2-FullSong](https://huggingface.co/m-a-p/MERT-v2-FullSong) by m-a-p | YuE2 semantic codes from real audio; the head architecture in `scripts/yue2/real_codes.py` is adapted from its `scripts/train_v2.py` | CC BY-NC 4.0 |
 | [DiffSynth-Studio](https://github.com/modelscope/DiffSynth-Studio) by ModelScope | Boogu Image Edit model, pipeline and training module; `scripts/boogu_diffsynth_train.py` is adapted from its `examples/boogu_image/model_training/train.py` | Apache-2.0 |
 | [Diffusers](https://github.com/huggingface/diffusers) | Model classes and pipelines; MiniMax H3 audio positions copied from `build_packed_sequence`; Qwen-Image prompt templates, latent packing and edit sizes from `QwenImagePipeline` / `QwenImageEditPlusPipeline`, followed in `scripts/qwen_image2512_model.py` | Apache-2.0 |
 | [Mel-Band-Roformer-Vocal-Model](https://github.com/KimberleyJensen/Mel-Band-Roformer-Vocal-Model) by KimberleyJensen | `scripts/melband/mel_band_roformer.py`, vendored with its source header (vocal separation for MiniMax H3 audio datasets) | not stated |

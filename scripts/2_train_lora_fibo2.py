@@ -47,6 +47,9 @@ try:
 except Exception:
     pass
 
+# El modelo NF4 publicado en Hugging Face (lo mismo que el conversor genera en local).
+HF_REPO_ID = "AcademiaSD/Fibo-2.0-NF4-for-LoRA-Training"
+
 # La receta de BRIA (fine_tuning/train_lora.py del modelo):
 #   - sigma: 90% logit-normal con la media que da el tamaño de la imagen, 10% uniforme.
 #   - x_t = sigma * ruido + (1 - sigma) * x0;  objetivo = ruido - x0;  MSE en fp32.
@@ -236,12 +239,27 @@ def ensure_model_downloaded(local_path):
         print("[OK] " + t("Local model found at: {path}", path=local_path))
         return local_path
 
-    # Fibo 2.0 no se publica cuantizado: el modelo NF4 se construye aquí una vez.
-    print("[!] " + t("Local model not found at: {path}", path=local_path))
-    print("  " + t("Fibo 2.0 is not published in NF4. Build it once with:"))
-    print("      tools/fibo2/5_conversor_Fibo2_NF4.py")
-    print("  " + t("It reads the diffusers folder Fibo2_Dev-Raw and writes Fibo2_Dev-NF4."))
-    sys.exit(3)
+    print("⚠ " + t("Local model not found at: {path}", path=local_path))
+    print("  " + t("Downloading from Hugging Face: {repo}", repo=HF_REPO_ID))
+
+    enable_hf_file_progress()
+
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError:
+        raise ImportError(t("huggingface_hub is required. Install it with: pip install huggingface_hub"))
+
+    # El entrenamiento no usa el text encoder: ya esta todo en el pre-cache.
+    downloaded_path = snapshot_download(
+        repo_id=HF_REPO_ID,
+        local_dir=local_path,
+        token=get_hf_token(),
+        max_workers=2,
+        ignore_patterns=["text_encoder_*/*"],
+    )
+
+    print("[OK] " + t("Model downloaded to: {path}", path=downloaded_path))
+    return downloaded_path
 
 
 def calculate_shift(image_seq_len, base_seq_len=256, max_seq_len=4096,

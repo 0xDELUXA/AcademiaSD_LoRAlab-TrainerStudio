@@ -78,6 +78,8 @@ IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
 EDIT_SUFFIXES = ("_before", "_after")
 
 PRECACHE_CONFIG = "settings/pre_cache_settings_fibo2.json"
+# El modelo NF4 publicado en Hugging Face (lo mismo que el conversor genera en local).
+HF_REPO_ID = "AcademiaSD/Fibo-2.0-NF4-for-LoRA-Training"
 CONFIG_PATH = "settings/caption_settings_fibo2.json"
 
 
@@ -121,12 +123,11 @@ def find_samples(dataset, mode):
 def load_captioner(model_id):
     path = os.path.join(model_id, "text_encoder_NF4")
     if not os.path.exists(os.path.join(path, "config.json")):
-        # Fibo 2.0 no se publica cuantizado: el text encoder NF4 se construye aquí una vez.
-        print("[!] " + t("Local model not found at: {path}", path=model_id), flush=True)
-        print("  " + t("Fibo 2.0 is not published in NF4. Build it once with:"), flush=True)
-        print("      tools/fibo2/5_conversor_Fibo2_NF4.py", flush=True)
-        print("  " + t("It reads the diffusers folder Fibo2_Dev-Raw and writes Fibo2_Dev-NF4."), flush=True)
-        return None, None
+        # Instalacion limpia: solo hace falta el text encoder NF4 y el processor.
+        print(t("Downloading the captioner from Hugging Face: {repo}", repo=HF_REPO_ID), flush=True)
+        token = read_json("settings/HF_token.json").get("token", "").strip() or None
+        snapshot_download(repo_id=HF_REPO_ID, local_dir=model_id, token=token, max_workers=2,
+                          allow_patterns=["text_encoder_NF4/*", "processor/*"])
 
     print(t("Loading {name}...", name="Qwen3-VL-4B (NF4)"), flush=True)
     model = Qwen3VLForConditionalGeneration.from_pretrained(path, dtype=torch.bfloat16, device_map="cuda")

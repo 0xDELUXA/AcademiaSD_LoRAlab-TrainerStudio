@@ -68,6 +68,9 @@ OFFLOAD_RESERVE_BYTES = int(1.5 * 1024**3)
 # Fibo 2.0 se entrenó con captions JSON de hasta 1000+ palabras (VGL) y con descripciones cortas.
 MAX_SEQUENCE_LENGTH = 4096
 
+# El modelo NF4 publicado en Hugging Face (lo mismo que el conversor genera en local).
+HF_REPO_ID = "AcademiaSD/Fibo-2.0-NF4-for-LoRA-Training"
+
 # ── DEFAULTS / VALORES POR DEFECTO ──────────────────────────────────────────
 DEFAULTS = {
     "model_id": "Fibo2_Dev-NF4",
@@ -196,12 +199,31 @@ def ensure_model_downloaded(local_path, text_encoder_dir):
         print("✓ " + t("Local model found at: {path}", path=f"{local_path} ({text_encoder_dir})"))
         return local_path
 
-    # Fibo 2.0 no se publica cuantizado: el modelo NF4 se construye aquí una vez.
-    print("[!] " + t("Local model not found at: {path}", path=local_path))
-    print("  " + t("Fibo 2.0 is not published in NF4. Build it once with:"))
-    print("      tools/fibo2/5_conversor_Fibo2_NF4.py")
-    print("  " + t("It reads the diffusers folder Fibo2_Dev-Raw and writes Fibo2_Dev-NF4."))
-    sys.exit(3)
+    print("⚠ " + t("Local model not found at: {path}", path=local_path))
+    print("  " + t("Downloading from Hugging Face: {repo}", repo=HF_REPO_ID))
+
+    enable_hf_file_progress()
+
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError:
+        raise ImportError(t("huggingface_hub is required. Install it with: pip install huggingface_hub"))
+
+    hf_token = get_hf_token()
+
+    # Solo la variante del text encoder elegida: las tres juntas son ~16 GB.
+    other_text_encoders = [f"text_encoder_{p}/*" for p, _ in TEXT_ENCODER_MODES.values()
+                           if f"text_encoder_{p}" != text_encoder_dir]
+
+    downloaded_path = snapshot_download(
+        repo_id=HF_REPO_ID,
+        local_dir=local_path,
+        token=hf_token,
+        max_workers=2,
+        ignore_patterns=other_text_encoders,
+    )
+    print("✓ " + t("Model downloaded to: {path}", path=downloaded_path))
+    return downloaded_path
 
 
 def image_size(aspect_ratio, area, multiple=16):

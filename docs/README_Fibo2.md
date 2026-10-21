@@ -82,7 +82,8 @@ All measurements below were taken on an **RTX 5080 (16 GB)**.
 
 ## 🔧 The NF4 conversion
 
-`tools/fibo2/5_conversor_Fibo2_NF4.py` is run **once**:
+The NF4 build is downloaded from `AcademiaSD/Fibo-2.0-NF4-for-LoRA-Training` the first
+time it is needed. To build it yourself, `tools/fibo2/5_conversor_Fibo2_NF4.py` is run **once**:
 
 ```
 Fibo2_Dev-Raw/        (the diffusers folder of briaai/Fibo-2.0-dev)
