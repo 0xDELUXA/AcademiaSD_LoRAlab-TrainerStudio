@@ -23,6 +23,7 @@ huggingface_hub
 
 bitsandbytes
 sentencepiece
+tiktoken
 protobuf
 pyarrow
 einops

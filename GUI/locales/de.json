@@ -1150,5 +1150,9 @@
   "Blocks trains attention and MLP of the 44 blocks: enough for characters, objects and styles. All also trains the perceptor that turns the caption into gist tokens, the modulation of every block and the input/output layers: that is the recipe BRIA used for Fibo 2.0, it gives the most control and it is heavier.": "Blocks trainiert Attention und MLP der 44 Blöcke: genug für Charaktere, Objekte und Stile. All trainiert zusätzlich den Perceiver, der den Caption in Gist-Token verwandelt, die Modulation jedes Blocks und die Ein-/Ausgabeschichten: das ist das Rezept, mit dem BRIA Fibo 2.0 trainiert hat; es gibt die meiste Kontrolle und ist schwerer.",
   "Preview Size:": "Vorschaugröße:",
   "The LoKr cannot be written in ComfyUI's fused layers: {n} layers are left out.": "Das LoKr lässt sich nicht in ComfyUIs fusionierte Schichten schreiben: {n} Schichten fallen weg.",
-  "{n} layers could not be mapped to ComfyUI.": "{n} Schichten konnten nicht auf ComfyUI abgebildet werden."
+  "{n} layers could not be mapped to ComfyUI.": "{n} Schichten konnten nicht auf ComfyUI abgebildet werden.",
+  "Fibo 2.0 is not published in NF4. Build it once with:": "Fibo 2.0 ist nicht in NF4 veröffentlicht. Einmalig bauen mit:",
+  "It reads the diffusers folder Fibo2_Dev-Raw and writes Fibo2_Dev-NF4.": "Es liest den Diffusers-Ordner Fibo2_Dev-Raw und schreibt Fibo2_Dev-NF4.",
+  "Fonts not found in {path}: the texts of the caption will be drawn with the default font.": "Schriften in {path} nicht gefunden: die Texte des Captions werden mit der Standardschrift gezeichnet.",
+  "ON ({n} steps)": "ON ({n} Schritte)"
 }

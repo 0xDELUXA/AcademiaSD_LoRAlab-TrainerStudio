@@ -75,6 +75,13 @@
       "run": "Run_LoRAlab-Anima.bat"
     },
     {
+      "id": "yue2",
+      "name": "YuE2-3B",
+      "description": "Music LoRAs (timbre NAR and plan AR)",
+      "image": "assets/yue2/portada.jpg",
+      "run": "Run_LoRAlab-YuE2.bat"
+    },
+    {
       "id": "klein9b",
       "name": "FLUX.2 Klein 9B",
       "description": "Image and edit LoRAs",

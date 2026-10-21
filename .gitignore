@@ -42,6 +42,12 @@ Fibo2_Dev-NF4/
 /Models/
 /Outputs/
 /Cache_Data/
+YuE2-3B_Raw/
+YuE2-3B_NF4/
+YuE2-Vae/
+YuE2-Vae-legacy/
+Qwen3-ASR/
+SheetSage2/
 
 # Ejecuciones / Runs
 cached_data_*/
@@ -60,6 +66,16 @@ HF_token.json
 *.bak
 preview_edit_images/
 tools/all-smi/
+MERT-v2-FullSong/
+YuE2-RealAudio-Head/
 
 # Descarga de prueba del paquete NF4 publicado
 Ming-Image_NF4_HF/
+
+# Local: datasets, credenciales y binarios / local only: datasets, credentials and binaries
+7sZEbSMc.txt
+4_descarga_flux.py
+
+Dataset_mrrtsgrl_15/
+Dataset_musica/
+Dataset_tosti_edit/
