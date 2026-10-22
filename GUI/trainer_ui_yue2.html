@@ -28,6 +28,8 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: var(--bg-dark); color: var(--text-main); display: flex; flex-direction: column; min-height: 100vh; padding: 20px; }
         
+        .beta-notice { display: flex; flex-direction: column; gap: 4px; background: rgba(245, 158, 11, 0.10); border: 1px solid rgba(245, 158, 11, 0.45); color: #fbbf24; border-radius: 12px; padding: 12px 18px; margin-bottom: 20px; font-size: 0.9rem; }
+        .beta-notice span { color: var(--text-muted); }
         header { display: flex; flex-direction: column; background: var(--panel-bg); padding: 18px 25px; border-radius: 12px; border: 1px solid var(--panel-border); margin-bottom: 20px; gap: 15px; }
 
         /* Banner Superior Panorámico */
@@ -283,6 +285,13 @@
         </div>
     </header>
 
+    <!-- Aviso: trainer experimental (beta) / Notice: experimental (beta) trainer -->
+    <div class="beta-notice">
+        <strong>⚠ Experimental — Beta</strong>
+        <span>This trainer is a work in progress. The default settings and the recommended values are not final: do not rely on them too much.</span>
+        <span>Check every result by ear and keep adjusting it.</span>
+    </div>
+
     <script>
         // El botón «Back» vuelve al lanzador: si hay referrer (se llegó desde él, en la misma
         // pestaña o a través de un proxy), history.back() deja la pestaña como estaba; sin
@@ -379,9 +388,9 @@
                         pack', 97 MB) into the AR training so the voice is learned without losing the
                         music. The Pre-Cache only downloads it.">
                         <label>Regularizer (AR):</label>
-                        <label style="display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" id="precache_regularizer" checked>
-                            <span>Download the minted pack (97 MB)</span>
+                        <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer;">
+                            <input type="checkbox" id="precache_regularizer" checked style="width: 18px; height: 18px; cursor: pointer;">
+                            Download the minted pack (97 MB)
                         </label>
                     </div>
 
@@ -463,14 +472,14 @@
                         <input type="text" id="train_output_dir" value="./Outputs/yue2_lora_output" readonly title="Path generated automatically, for information">
                     </div>
 
-                    <div class="form-group" title="NAR learns vocal timbre, voice identity, instruments and production texture from sound descriptions. AR learns lyric phrasing and semantic song structure from lyrics or a plan. Both trains NAR first, then reloads the base model from disk and trains AR. Pre-Cache extracts the semantic codes of your real audio (MERT-v2 + a community tokenizer head, since m-a-p has not released theirs): NAR learns to render them like ComfyUI does, AR learns to write them. AR memorizes your songs past ~1500 steps. The NAR LoRA loads in ComfyUI with Load LoRA (model only). Stage is fixed when training starts.">
+                    <div class="form-group" title="AR writes the semantic codes, and the voice lives in those codes: it learns voice identity, vocal timbre, instruments and the sound of the artist. NAR renders those codes into audio and learns the lyrics and their phrasing. Both trains NAR first, then reloads the base model from disk and trains AR. Pre-Cache extracts the semantic codes of your real audio (MERT-v2 + a community tokenizer head, since m-a-p has not released theirs): NAR learns to render them like ComfyUI does, AR learns to write them. AR memorizes your songs past ~1500 steps. The NAR LoRA loads in ComfyUI with Load LoRA (model only), the AR LoRA with Load LoRA (clip strength). Stage is fixed when training starts. Experimental: these descriptions and the defaults are not final.">
                         <label>Training Stage:</label>
                         <select id="train_stage">
-                            <option value="nar" selected>NAR — voice, timbre &amp; sound</option>
-                            <option value="ar">AR — lyrics &amp; phrasing</option>
+                            <option value="nar" selected>NAR — lyrics &amp; phrasing</option>
+                            <option value="ar">AR — voice, timbre &amp; sound</option>
                             <option value="both">Both — NAR, then AR</option>
                         </select>
-                        <small style="display:block;color:var(--text-muted);margin-top:4px;">NAR: voice/instrument tone and production. AR: lyrics, phrasing and song structure. Both exports a LoRA for each stage.</small>
+                        <small style="display:block;color:var(--text-muted);margin-top:4px;">AR: voice, timbre and sound of the artist. NAR: lyrics and phrasing. Both exports a LoRA for each stage.</small>
                     </div>
 
                     <div class="form-row">
@@ -500,11 +509,11 @@
                         </div>
                     </div>
 
-                    <div class="form-group" title="Mix the minted pack into the AR training so a small dataset
+                    <div class="form-group" style="margin-top:8px;" title="Mix the minted pack into the AR training so a small dataset
                         cannot collapse the token grammar. Only the AR stage uses it.">
-                        <label style="display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" id="train_regularizer" checked>
-                            <span>Mix the minted pack in the AR stage</span>
+                        <label style="display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer;">
+                            <input type="checkbox" id="train_regularizer" checked style="width: 18px; height: 18px; cursor: pointer;">
+                            Mix the minted pack in the AR stage
                         </label>
                     </div>
 
@@ -1657,16 +1666,16 @@
         // el botón lanza el troceado de audio y los .txt los escribe el
         // usuario). Dos tipos, uno por rama del Mixture-of-Transformers:
         //  - nar: cómo SUENA el clip (timbre de voz, instrumentos, producción).
-        //    Condiciona la rama NAR, la que aprende el timbre.
+        //    Condiciona la rama NAR, la que renderiza los códigos (letra y fraseo).
         //  - ar: la LETRA del clip (cruda, sin títulos) o su plan/estructura.
-        //    Condiciona la rama AR, la que aprende fraseo y estructura.
+        //    Condiciona la rama AR, la que escribe los códigos (voz, timbre y sonido).
         // Default prompts per STAGE (YuE2 has no image captioner: the button
         // runs the audio split and the .txt files are written by the user).
         // Two kinds, one per branch of the Mixture-of-Transformers:
         //  - nar: how the clip SOUNDS (voice timbre, instruments, production).
-        //    Conditions the NAR branch, the one that learns the timbre.
+        //    Conditions the NAR branch, the one that renders the codes (lyrics, phrasing).
         //  - ar: the clip's LYRICS (raw, no headings) or its plan/structure.
-        //    Conditions the AR branch, the one that learns phrasing/structure.
+        //    Conditions the AR branch, the one that writes the codes (voice, timbre, sound).
         async function loadCaptionSettings() {
             let data = {};
             try {

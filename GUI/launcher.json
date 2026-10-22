@@ -77,7 +77,7 @@
     {
       "id": "yue2",
       "name": "YuE2-3B",
-      "description": "Music LoRAs (timbre NAR and plan AR)",
+      "description": "Music LoRAs (voice AR and phrasing NAR) · Experimental beta",
       "image": "assets/yue2/portada.jpg",
       "run": "Run_LoRAlab-YuE2.bat"
     },

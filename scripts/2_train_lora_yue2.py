@@ -311,7 +311,8 @@ def _comfy_name(name, stage):
 def comfy_lora(sd, alpha, stage):
     """LoRA de una etapa (nombres PEFT nativos) -> formato de ComfyUI, sin pérdida: A se concatena por rank
     y B va en diagonal por bloques, así B·A da cada delta en su tramo de la capa fusionada. El rank
-    fusionado es N·r, por eso alpha se multiplica por N: la escala alpha/rank no cambia."""
+    fusionado es N·r, por eso alpha se multiplica por N: la escala alpha/rank no cambia. alpha=None: B ya
+    lleva la escala, así que alpha = rank (factor 1)."""
     prefix = "nar_" if stage == "nar" else ""
     out, fused = {}, {}
     for name in sorted({k.rsplit(".lora_", 1)[0] for k in sd}):
@@ -320,7 +321,8 @@ def comfy_lora(sd, alpha, stage):
         group = next((g for g in COMFY_FUSED if head.endswith("." + prefix + g[0]) and leaf in g[1]), None)
         if group is None:
             key = _comfy_name(name, stage)
-            out.update({key + ".lora_A.weight": a, key + ".lora_B.weight": b, key + ".alpha": torch.tensor(alpha)})
+            out.update({key + ".lora_A.weight": a, key + ".lora_B.weight": b,
+                        key + ".alpha": torch.tensor(float(a.shape[0]) if alpha is None else alpha)})
         else:
             fused.setdefault((head, group), {})[leaf] = (a, b)
     for (head, (_, parts, target)), pieces in fused.items():
@@ -329,7 +331,28 @@ def comfy_lora(sd, alpha, stage):
         key = _comfy_name(f"{head}.{target}", stage)
         out[key + ".lora_A.weight"] = torch.cat([pieces[p][0] for p in parts])
         out[key + ".lora_B.weight"] = torch.block_diag(*[pieces[p][1] for p in parts])
-        out[key + ".alpha"] = torch.tensor(alpha * len(parts))
+        out[key + ".alpha"] = torch.tensor(float(out[key + ".lora_A.weight"].shape[0]) if alpha is None
+                                           else alpha * len(parts))
+    return out
+
+
+def comfy_lokr(model, stage):
+    """LoKr -> ComfyUI. Las capas que ComfyUI no fusiona quedan como LoKr con su nombre de ComfyUI. Las
+    fusionadas (q/k/v, gate/up) no admiten un LoKr por tramo, así que se escriben como el LoRA exacto
+    equivalente: w1 ⊗ (w2_a·w2_b) = (w1 ⊗ w2_a)·(I ⊗ w2_b), rank c·r, con la escala dentro de B."""
+    prefix = "nar_" if stage == "nar" else ""
+    out, pairs = {}, {}
+    for name, layer in model.lokr_layers().items():
+        head, _, leaf = name.rpartition(".")
+        if any(head.endswith("." + prefix + g[0]) and leaf in g[1] for g in COMFY_FUSED):
+            w1, w2a, w2b = (getattr(layer, k).detach().float().cpu() for k in ("lokr_w1", "lokr_w2_a", "lokr_w2_b"))
+            pairs[name + ".lora_B.weight"] = (layer.scale * torch.kron(w1, w2a)).to(torch.bfloat16).contiguous()
+            pairs[name + ".lora_A.weight"] = torch.kron(torch.eye(layer.c), w2b).to(torch.bfloat16).contiguous()
+        else:
+            key = _comfy_name(name, stage)
+            out.update({f"{key}.{k}": v for k, v in layer.export_tensors().items()})
+            out[key + ".alpha"] = torch.tensor(float(export_alpha()))
+    out.update(comfy_lora(pairs, None, stage))
     return out
 
 
@@ -339,8 +362,7 @@ def _export_lora(model, path, step, stage):
     sobre YuE2ForCausalLM las encuentra tal cual), con alpha por capa porque
     un alpha global no basta cuando el checkpoint fue entrenado con rsLoRA."""
     if USE_LOKR:
-        save_file(lora_options.lokr_export(model, lambda name: name, export_alpha()),
-                  path, metadata=build_lora_metadata(step, stage))
+        save_file(comfy_lokr(model, stage), path, metadata=build_lora_metadata(step, stage))
         return
     clean = {}
     for k, v in get_peft_model_state_dict(model).items():

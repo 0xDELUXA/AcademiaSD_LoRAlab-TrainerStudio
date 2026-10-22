@@ -562,19 +562,22 @@ Rank 16 matters for characters: with rank 8 the likeness is just as good, but th
 
 ---
 
-### YuE2-3B — song LoRAs (timbre NAR + semantic AR)
+### YuE2-3B — song LoRAs (voice AR + phrasing NAR) · ⚠ Experimental / Beta
+
+> [!WARNING]
+> **This trainer is experimental and in beta.** The settings below — defaults, "verified starting point", steps, rank and learning rates — are **not final** and should not be taken too seriously: they come from a handful of runs on one dataset. **Check every result by ear and keep adjusting it**; expect the recipe to change.
 
 YuE2-3B (m-a-p) is a **Mixture-of-Transformers**: every one of its 28 blocks carries two complete routes — an **AR** causal route that generates the semantic codec tokens, and a **NAR** route that does flow matching on the 64-dim audio latent. This trainer keeps them apart: choose **`nar` (default), `ar`, or `both`** in Training Settings. Each stage exports its own LoRA and only touches its own branch; `both` runs NAR first, reloads the base model from disk, then runs AR.
 
 - **Datasets:** songs (`.wav`, `.mp3`, `.flac`, …) with their lyrics in a `.txt` of the same name. The prepare pass re-encodes to **48 kHz stereo** and slices by silence into ≤30 s clips (`__cNN.wav`); a global `Style prompt` (and the optional `[Tags]`/`[Lyrics]` protocol) shapes every request.
 - **Real-audio codes:** m-a-p has not released YuE2's audio-to-code tokenizer, so Pre-Cache uses the community one: MERT-v2-FullSong layer 20 → Mothersuperior's tokenizer head (`v5_30k`) → one semantic code per 40 ms latent frame (`<cache>/_realcodes_<clip>.pt`, ~2.8 GB VRAM, ~1.4 GB downloaded once). It gets about 1 code in 5 exactly right, but rendering those codes with the base NAR keeps the song's voice timbre, harmony and structure.
-- **Stage = `nar`** (default) — voice identity, vocal timbre/register, instrument tone and production texture. It learns the VAE-latent velocity seeing the text prefix **plus the clip's real codes**, the same context ComfyUI gives it, so the LoRA acts where ComfyUI generates. It is exported in ComfyUI's native layout (`diffusion_model.model.layers.N.self_attn.qkv_proj`, `mlp.gate_up_proj`…, q/k/v and gate/up fused losslessly): load it with **Load LoRA (model only)**.
-- **Stage = `ar`** — lyrics, phrasing, vocal delivery timing and semantic song structure: cross-entropy on the clips' real codes. It memorizes the training songs past ~1500 steps.
+- **Stage = `nar`** (default) — lyrics and phrasing: it renders the codes into audio. It learns the VAE-latent velocity seeing the text prefix **plus the clip's real codes**, the same context ComfyUI gives it, so the LoRA acts where ComfyUI generates. It is exported in ComfyUI's native layout (`diffusion_model.model.layers.N.self_attn.qkv_proj`, `mlp.gate_up_proj`…, q/k/v and gate/up fused losslessly): load it with **Load LoRA (model only)**.
+- **Stage = `ar`** — voice identity, vocal timbre, instruments and the sound of the artist: the AR writes the semantic codes, and the voice lives in those codes (cross-entropy on the clips' real codes). This is the stage of the community's artist LoRAs, mixed 50 % with the minted regularizer pack so a small dataset cannot collapse YuE2's token grammar. It memorizes the training songs past ~1500 steps.
 - **Stage = `both`** — NAR first, then a fresh base model from disk for AR: two exports, `YuE2_FINAL_LoRA.safetensors` (ComfyUI layout) + `YuE2_FINAL_AR_LoRA.safetensors` (ComfyUI layout for the CLIP side, `text_encoders.model.layers.N.self_attn.qkv_proj`…). In ComfyUI, load the NAR LoRA on the model and the AR LoRA with **Load LoRA** (clip strength).
 - **Previews** render short songs (codes → 32-step midpoint ODE → VAE decoder) as 48 kHz WAVs during training.
 - **NF4:** a pre-quantized backbone (`YuE2-3B_NF4`, built with `tools/yue2/5_conversor_YuE2_NF4.py`) loads in ~5 s at 3.1 GB; only the attention+MLP of both branches are quantized — the latent bridges (`llm2vae`/`vae2llm`/`time_embedder`), layernorms, embeddings and heads stay BF16. Without the cache the trainer quantizes the raw model on the fly.
 
-| Verified starting point | NAR (timbre) | AR (lyrics) |
+| Starting point (not final) | NAR (lyrics & phrasing) | AR (voice, timbre & sound) |
 | :--- | :--- | :--- |
 | Rank / Alpha | 16 / 16 | 8 / 8 |
 | Learning rate | 3e-4 | 2e-4 |
