@@ -34,8 +34,16 @@ def _target(folder, name):
     return path if path.parent == folder.resolve() else None
 
 
+def _strip_options_suffix(stem, opts):
+    """Quita del nombre los sufijos que se ponen según los metadatos (_rs/_plus/_lokr), para no
+    duplicarlos. _AR / _NAR solo en los LoRA de YuE2: en otro trainer puede ser parte del nombre."""
+    pattern = r"(_rs)?(_plus)?(_lokr)?(_n?ar)?$" if opts.endswith(("_AR", "_NAR")) else r"(_rs)?(_plus)?(_lokr)?$"
+    return re.sub(pattern, "", stem, flags=re.IGNORECASE) or stem
+
+
 def lora_options_suffix(path):
-    """_rs (rsLoRA), _plus (LoRA+) o _lokr (LoKr) según los metadatos del LoRA; "" si no lleva ninguno.
+    """_rs (rsLoRA), _plus (LoRA+) o _lokr (LoKr) según los metadatos del LoRA, y _AR / _NAR si es una
+    etapa de YuE2 (cada etapa se carga en un sitio distinto de ComfyUI); "" si no lleva ninguno.
     Se lee solo la cabecera del .safetensors (8 bytes de longitud + JSON), sin cargar los pesos."""
     try:
         with open(path, "rb") as f:
@@ -44,15 +52,16 @@ def lora_options_suffix(path):
     except (OSError, ValueError, struct.error):
         return ""
     return (("_rs" if meta.get("rslora") == "true" else "") + ("_plus" if meta.get("loraplus_ratio") else "")
-            + ("_lokr" if meta.get("lokr_factor") else ""))
+            + ("_lokr" if meta.get("lokr_factor") else "")
+            + {"ar": "_AR", "nar": "_NAR"}.get(meta.get("yue2_stage"), ""))
 
 
 def with_lora_options_suffix(name, path):
     """name.safetensors con el sufijo que corresponde al LoRA de path. Un sufijo que no corresponda (la GUI
     lo pone según las casillas, que pueden cambiar después de entrenar) se sustituye por el correcto."""
     stem = name[:-len(".safetensors")] if name.lower().endswith(".safetensors") else name
-    stem = re.sub(r"(_rs)?(_plus)?(_lokr)?$", "", stem, flags=re.IGNORECASE) or stem
-    return stem + lora_options_suffix(path) + ".safetensors"
+    opts = lora_options_suffix(path)
+    return _strip_options_suffix(stem, opts) + opts + ".safetensors"
 
 
 def register(app, get_dataset_dir, get_output_dir, dataset_exts):
@@ -153,7 +162,7 @@ def register(app, get_dataset_dir, get_output_dir, dataset_exts):
             stem = final_name[:-len(".safetensors")] if final_name.lower().endswith(".safetensors") else final_name
             # El campo ya lleva el sufijo que la GUI pone según las casillas: se quita y se pone el que
             # dicen los metadatos del LoRA, para no duplicarlo (_lokr_lokr).
-            stem = re.sub(r"(_rs)?(_plus)?(_lokr)?$", "", stem, flags=re.IGNORECASE) or stem
+            stem = _strip_options_suffix(stem, opts)
             steps = re.search(r"_step_(\d+)$", f.stem)
             if steps:
                 return f"{stem}_{steps.group(1)}_steps{opts}.safetensors"

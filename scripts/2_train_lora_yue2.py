@@ -10,14 +10,14 @@ mecanismos para papeles distintos: este trainer entrena UNA etapa por run y
 exporta un .safetensors POR ETAPA. Un cargador de LoRA solo inyecta lo que el
 fichero contiene, así que los dos ficheros son independientes y combinables.
 
-  stage = "nar"  ->  YuE2_LoRA_step_<N>.safetensors / YuE2_FINAL_LoRA.safetensors
-                     timbre/vocalidad: flow matching del latente VAE (MSE de
-                     velocidad). Condición: prefijo de texto SOLO (codec
-                     dropout, camino B del plan): no hace falta muestrear
-                     códigos del audio.
+  stage = "nar"  ->  YuE2_NAR_LoRA_step_<N>.safetensors / YuE2_FINAL_NAR_LoRA.safetensors
+                     letra y fraseo: flow matching del latente VAE (MSE de
+                     velocidad), condicionado con el prefijo de texto + los
+                     códigos reales del clip. En las pruebas reales NO clona
+                     la voz. (Antes: YuE2_LoRA_step_<N> / YuE2_FINAL_LoRA.)
   stage = "ar"   ->  YuE2_AR_LoRA_step_<N>.safetensors / YuE2_FINAL_AR_LoRA.safetensors
-                     letra/estructura de la generación semántica: CE sobre los
-                     códigos codec. Requiere códigos POR CLIP: se muestrean UNA
+                     voz, timbre y sonido (la etapa que clona la voz): CE
+                     sobre los códigos codec. Requiere códigos POR CLIP: se muestrean UNA
                      vez con el modelo base (iguales parámetros de sampling que
                      el release) y quedan en <cache>/_codes_<clip>.pt. Si
                      añades clips, relanza el trainer: solo muestrea los que
@@ -247,7 +247,7 @@ def stage_names(stage):
     "step_(\\d+)", así que las dos variantes pisan el mismo patrón; el prefijo
     y el identificador de etapa distinguen nar/ar en las listas de la GUI."""
     if stage == "nar":
-        return "YuE2_LoRA_step_{}.safetensors", "YuE2_FINAL_LoRA.safetensors"
+        return "YuE2_NAR_LoRA_step_{}.safetensors", "YuE2_FINAL_NAR_LoRA.safetensors"
     return "YuE2_AR_LoRA_step_{}.safetensors", "YuE2_FINAL_AR_LoRA.safetensors"
 
 

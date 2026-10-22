@@ -1258,5 +1258,6 @@
   "This trainer is a work in progress. The default settings and the recommended values are not final: do not rely on them too much.": "Este trainer está en desarrollo. Los ajustes por defecto y los valores recomendados no son definitivos: no los tomes muy en cuenta.",
   "Check every result by ear and keep adjusting it.": "Verifica cada resultado escuchándolo y sigue ajustándolo.",
   "Download the minted pack (97 MB)": "Descargar el minted pack (97 MB)",
-  "Mix the minted pack in the AR stage": "Mezclar el minted pack en la etapa AR"
+  "Mix the minted pack in the AR stage": "Mezclar el minted pack en la etapa AR",
+  "No LoRA of the {stage} stage found in: {path}": "No hay ningún LoRA de la etapa {stage} en: {path}"
 }

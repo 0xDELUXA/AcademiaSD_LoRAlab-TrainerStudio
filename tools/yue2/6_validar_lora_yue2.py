@@ -71,7 +71,8 @@ def pick_lora_file():
                  if f.endswith(".safetensors") and ("FINAL" in f or "step_" in f)]
         if files:
             return max(files, key=os.path.getmtime)
-    for c in (os.path.join(STUDIO_ROOT, "yue2_lora_output", "YuE2_FINAL_LoRA.safetensors"),):
+    for c in (os.path.join(STUDIO_ROOT, "yue2_lora_output", "YuE2_FINAL_NAR_LoRA.safetensors"),
+              os.path.join(STUDIO_ROOT, "yue2_lora_output", "YuE2_FINAL_LoRA.safetensors")):
         if os.path.isfile(c):
             return c
     sys.exit("[E] " + t("No YuE2 LoRA found. Usage: 6_validar_lora_yue2.py <file.safetensors>"))

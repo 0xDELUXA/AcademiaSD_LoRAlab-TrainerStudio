@@ -507,3 +507,9 @@ Cambios: la GUI, el lanzador y el README pasan a **AR = voz, timbre y sonido**
 y **NAR = letra y fraseo**, y el trainer queda marcado como **experimental /
 beta** (los ajustes no son definitivos y cada resultado hay que verificarlo y
 ajustarlo). La etapa por defecto pasa a ser **AR**, en la GUI y en el script.
+
+Nombres de salida con la etapa: `YuE2_NAR_LoRA_step_N` / `YuE2_FINAL_NAR_LoRA`
+(antes sin sufijo) y `YuE2_AR_LoRA_step_N` / `YuE2_FINAL_AR_LoRA`. Send to
+Models y la descarga añaden `_AR` / `_NAR` al nombre final (sale del metadato
+`yue2_stage`); Send to Models exporta la etapa elegida y, con `both`, las dos.
+No hay `_BOTH`: son dos LoRA que se cargan en sitios distintos.

@@ -1151,10 +1151,10 @@
         }
 
         // El nombre final lleva _rs / _plus / _lokr según las casillas; al exportar o descargar, el
-        // servidor lo corrige con lo que dicen los metadatos del LoRA entrenado.
+        // servidor lo corrige con lo que dicen los metadatos del LoRA entrenado y añade _AR / _NAR.
         function updateFinalNameSuffix() {
             const el = document.getElementById('export_final_name');
-            const base = el.value.trim().replace(/(_rs)?(_plus)?(_lokr)?(\.safetensors)?$/i, '');
+            const base = el.value.trim().replace(/(_rs)?(_plus)?(_lokr)?(_n?ar)?(\.safetensors)?$/i, '');
             if (!base) return;
             const lk = document.getElementById('train_use_lokr');
             const sfx = lk && lk.checked ? '_lokr'
@@ -1463,7 +1463,8 @@
                 const res = await fetch('/api/export-lora', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target_dir: targetDir, final_name: finalName })
+                    body: JSON.stringify({ target_dir: targetDir, final_name: finalName,
+                                           stage: document.getElementById('train_stage').value })
                 });
                 const data = await res.json();
                 if (data.status === 'ok') {

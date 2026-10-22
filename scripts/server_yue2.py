@@ -371,6 +371,22 @@ def browse_dir():
 # EXPORTAR LORA A CARPETA MODELS
 # =============================================================================
 
+def stage_lora(output_dir, stage):
+    """El LoRA que se exporta de una etapa: su FINAL o, si no lo hay, su último step_N. Los NAR de
+    antes de los sufijos (YuE2_FINAL_LoRA / YuE2_LoRA_step_N) cuentan como NAR."""
+    tag = "AR" if stage == "ar" else "NAR"
+    finals = [f"YuE2_FINAL_{tag}_LoRA.safetensors"] + (["YuE2_FINAL_LoRA.safetensors"] if tag == "NAR" else [])
+    for name in finals:
+        if (output_dir / name).is_file():
+            return output_dir / name
+    steps = []
+    for f in output_dir.glob("*.safetensors"):
+        match = re.fullmatch(r"YuE2_(AR_|NAR_)?LoRA_step_(\d+)\.safetensors", f.name, re.IGNORECASE)
+        if match and (match.group(1) or "NAR_").upper() == tag + "_":
+            steps.append((int(match.group(2)), f))
+    return max(steps)[1] if steps else None
+
+
 @app.route("/api/export-lora", methods=["POST"])
 def export_lora():
     try:
@@ -394,33 +410,27 @@ def export_lora():
         if not output_dir.exists():
             return jsonify({"status": "error", "error": t("Output folder does not exist: {path}", path=output_dir)}), 404
 
-        final_file = output_dir / "YuE2_FINAL_LoRA.safetensors"
-        source_file = None
+        # La etapa elegida en la GUI; both exporta los dos LoRA, cada uno con su sufijo _NAR / _AR.
+        stage = str(data.get("stage") or read_json_file(TRAIN_CONFIG, {}).get("stage") or "ar").lower()
+        stages = ["nar", "ar"] if stage == "both" else ["nar" if stage == "nar" else "ar"]
+        found = [(s, stage_lora(output_dir, s)) for s in stages]
+        missing = [s.upper() for s, f in found if f is None]
+        sources = [f for s, f in found if f is not None]
+        if not sources:
+            return jsonify({"status": "error", "error": t("No LoRA of the {stage} stage found in: {path}",
+                                                          stage=" / ".join(missing), path=output_dir)}), 404
 
-        if final_file.exists():
-            source_file = final_file
-        else:
-            candidates = []
-            for f in output_dir.glob("*.safetensors"):
-                match = re.search(r"step_(\d+)\.safetensors$", f.name, re.IGNORECASE)
-                if match:
-                    candidates.append((int(match.group(1)), f))
-            if candidates:
-                candidates.sort(key=lambda x: x[0], reverse=True)
-                source_file = candidates[0][1]
-
-        if not source_file or not source_file.exists():
-            return jsonify({"status": "error", "error": t("No .safetensors files found in: {path}", path=output_dir)}), 404
-
-        custom_name = file_transfer.with_lora_options_suffix(custom_name, source_file)
-        dest_file = target_dir / custom_name
-        shutil.copy2(source_file, dest_file)
+        names = []
+        for source_file in sources:
+            names.append(file_transfer.with_lora_options_suffix(custom_name, source_file))
+            shutil.copy2(source_file, target_dir / names[-1])
 
         return jsonify({
             "status": "ok",
-            "source": source_file.name,
-            "dest": str(dest_file),
-            "filename": custom_name
+            "source": ", ".join(f.name for f in sources),
+            "dest": ", ".join(str(target_dir / n) for n in names),
+            "filename": "\n".join(names),
+            "missing": missing
         })
 
     except Exception as exc:
