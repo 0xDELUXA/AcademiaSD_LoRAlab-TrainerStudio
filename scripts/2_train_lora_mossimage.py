@@ -187,6 +187,9 @@ if SEED > 0:
     random.seed(SEED)
 
 
+VRAM_TOTAL = 0
+
+
 def free_vram():
     gc.collect()
     torch.cuda.empty_cache()
@@ -668,7 +671,7 @@ def reload_live_settings():
 
 
 def train_mossimage():
-    global LORA_RANK, LORA_ALPHA, USE_RSLORA, USE_LORAPLUS, LORAPLUS_RATIO, USE_LOKR, LOKR_FACTOR  # al reanudar se toman del checkpoint (el alpha se exporta con el LoRA)
+    global LORA_RANK, LORA_ALPHA, USE_RSLORA, USE_LORAPLUS, LORAPLUS_RATIO, USE_LOKR, LOKR_FACTOR, VRAM_TOTAL  # al reanudar se toman del checkpoint (el alpha se exporta con el LoRA)
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.benchmark = True
 
@@ -683,6 +686,7 @@ def train_mossimage():
     t0 = time.time()
     transformer = load_nf4_transformer(MODEL_ID)
     transformer.to("cuda")
+    VRAM_TOTAL = torch.cuda.get_device_properties(0).total_memory
     free_vram()
     print(t("Transformer loaded in {s:.1f}s.", s=time.time() - t0) + f" VRAM: {torch.cuda.memory_allocated()/1e9:.1f} GB", flush=True)
 
@@ -929,6 +933,12 @@ def train_mossimage():
                     gparam["lr"] = lr_at(step) * gparam.get("lr_mult", 1.0)
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
+
+            # Con 8 GB, los distintos tamaños de imagen fragmentan la caché de CUDA hasta llenarla; en
+            # Windows el driver pasa entonces a la RAM del sistema y cada paso tarda varias veces más.
+            del pred, loss, noisy, latents, noise, target, text, mask
+            if torch.cuda.memory_reserved() > 0.85 * VRAM_TOTAL:
+                torch.cuda.empty_cache()
 
             t_step     = time.time() - t0
             t_step_avg = t_step if t_step_avg == 0 else 0.1 * t_step + 0.9 * t_step_avg
