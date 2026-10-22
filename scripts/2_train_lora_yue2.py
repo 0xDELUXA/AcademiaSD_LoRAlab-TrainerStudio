@@ -103,7 +103,7 @@ DEFAULTS = {
     "model_id": "Models/YuE2-3B_Raw",
     "cache_dir": "./Cache_Data/cached_data_yue2",
     "output_dir": "./Outputs/yue2_lora_output",
-    "stage": "nar",              # nar | ar | both
+    "stage": "ar",               # ar | nar | both (ar: la etapa que clona la voz en las pruebas reales)
     "precision": "bf16",         # bf16 | nf4 (el NF4 se valida contra BF16 en Fase 6)
     "total_steps": 1200,
     "batch_size": 1,             # reservado: los clips cambian de longitud; usa grad_accum_steps
@@ -155,8 +155,8 @@ def _g(key):
 
 STAGE            = str(_g("stage")).strip().lower()
 if STAGE not in ("nar", "ar", "both"):
-    print("[!] " + t("Unknown stage '{s}': must be nar, ar or both. Using nar.", s=STAGE))
-    STAGE = "nar"
+    print("[!] " + t("Unknown stage '{s}': must be nar, ar or both. Using ar.", s=STAGE))
+    STAGE = "ar"
 PRECISION        = "nf4" if _g("precision") == "nf4" else "bf16"
 TOTAL_STEPS      = int(_g("total_steps"))
 BATCH_SIZE       = max(1, int(_g("batch_size")))

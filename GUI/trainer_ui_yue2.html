@@ -475,8 +475,8 @@
                     <div class="form-group" title="AR writes the semantic codes, and the voice lives in those codes: it learns voice identity, vocal timbre, instruments and the sound of the artist. NAR renders those codes into audio and learns the lyrics and their phrasing. Both trains NAR first, then reloads the base model from disk and trains AR. Pre-Cache extracts the semantic codes of your real audio (MERT-v2 + a community tokenizer head, since m-a-p has not released theirs): NAR learns to render them like ComfyUI does, AR learns to write them. AR memorizes your songs past ~1500 steps. The NAR LoRA loads in ComfyUI with Load LoRA (model only), the AR LoRA with Load LoRA (clip strength). Stage is fixed when training starts. Experimental: these descriptions and the defaults are not final.">
                         <label>Training Stage:</label>
                         <select id="train_stage">
-                            <option value="nar" selected>NAR — lyrics &amp; phrasing</option>
-                            <option value="ar">AR — voice, timbre &amp; sound</option>
+                            <option value="ar" selected>AR — voice, timbre &amp; sound</option>
+                            <option value="nar">NAR — lyrics &amp; phrasing</option>
                             <option value="both">Both — NAR, then AR</option>
                         </select>
                         <small style="display:block;color:var(--text-muted);margin-top:4px;">AR: voice, timbre and sound of the artist. NAR: lyrics and phrasing. Both exports a LoRA for each stage.</small>

@@ -506,4 +506,4 @@ los códigos los escribe el AR.
 Cambios: la GUI, el lanzador y el README pasan a **AR = voz, timbre y sonido**
 y **NAR = letra y fraseo**, y el trainer queda marcado como **experimental /
 beta** (los ajustes no son definitivos y cada resultado hay que verificarlo y
-ajustarlo). La etapa por defecto sigue siendo NAR.
+ajustarlo). La etapa por defecto pasa a ser **AR**, en la GUI y en el script.
