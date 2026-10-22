@@ -462,6 +462,7 @@ en los datos y puede aprenderla.
    usa la referencia; antes era `uniform`), y la opción está en la GUI.
 5. **La etapa por defecto** sigue siendo NAR, pero la GUI explica qué hace
    cada una: NAR = voz, timbre y producción; AR = letra y fraseo.
+   **Corregido en la Fase 9**: las pruebas reales dicen lo contrario (AR = voz).
 
 ## La receta de la comunidad para un LoRA de artista (para comparar)
 
@@ -486,3 +487,23 @@ en los datos y puede aprenderla.
 - El VAE está bien: el roundtrip de un latente cacheado da RMS 1,03 respecto al
   audio original (la correlación de forma de onda ~0,74 es normal en audio; la
   comunidad mide ~95 % de oído).
+
+---
+
+# Fase 9 — Resultado de las pruebas reales: la voz la clona el AR
+
+Escuchando los LoRA entrenados con datasets reales (ExtremoV4/V5):
+
+- **El LoRA del AR consigue clonar la voz del cantante.**
+- **El LoRA del NAR no la clona**, ni siquiera condicionado con los códigos
+  reales (Fase 8): cambia cómo se renderizan los códigos, pero la voz sigue
+  siendo la del modelo base.
+
+Encaja con la receta de la comunidad: el LoRA de artista es el del AR, y el
+del NAR es solo un adaptador del decodificador. La voz vive en los códigos y
+los códigos los escribe el AR.
+
+Cambios: la GUI, el lanzador y el README pasan a **AR = voz, timbre y sonido**
+y **NAR = letra y fraseo**, y el trainer queda marcado como **experimental /
+beta** (los ajustes no son definitivos y cada resultado hay que verificarlo y
+ajustarlo). La etapa por defecto sigue siendo NAR.
