@@ -53,6 +53,7 @@ New trainers are added **here**. One `Update_LoRAlab-TrainerStudio.bat` brings t
 | **SDXL** | Image LoRAs for SDXL Base, Pony, Illustrious, NoobAI, Juggernaut, RealVis or your own SDXL checkpoint | **4 GB** (NF4) / 12 GB (BF16) |
 | **LTX-2.3** (also LTX-2.5) | Character and style LoRAs for the LTX video model, trained from images | 12 GB |
 | **MiniMax-H3** | Video LoRAs from images, clips and audio, plus training-free **RefMods** | 8 GB |
+| **YuE2-3B** *(experimental / beta)* | Song LoRAs: the AR clones the singer's voice, the NAR learns lyrics and phrasing | ~8 GB (NF4, measured on NAR) |
 
 ---
 
