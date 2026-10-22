@@ -105,16 +105,16 @@ DEFAULTS = {
     "output_dir": "./Outputs/yue2_lora_output",
     "stage": "ar",               # ar | nar | both (ar: la etapa que clona la voz en las pruebas reales)
     "precision": "bf16",         # bf16 | nf4 (el NF4 se valida contra BF16 en Fase 6)
-    "total_steps": 1200,
+    "total_steps": 600,          # columna AR del README (la etapa por defecto)
     "batch_size": 1,             # reservado: los clips cambian de longitud; usa grad_accum_steps
     "grad_accum_steps": 4,
-    "lr": 3e-4,                  # plan: 2e-4..4e-4 (flow matching + AdamW estable)
+    "lr": 2e-4,                  # plan: 2e-4..4e-4; AR 2e-4, NAR 3e-4
     "min_lr_ratio": 0.1,
     "warmup_steps": 50,
     "lr_scheduler": "cosine",
     "lr_cycles": 3,
-    "lora_rank": 16,             # plan: NAR rank 16 (timbre), AR 8 en pruebas cortas
-    "lora_alpha": 16,
+    "lora_rank": 8,              # AR 8 (por defecto); NAR 16
+    "lora_alpha": 8,
     "use_rslora": False,
     "use_loraplus": False,
     "loraplus_ratio": 16.0,
