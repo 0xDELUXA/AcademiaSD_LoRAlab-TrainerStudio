@@ -1259,5 +1259,19 @@
   "Check every result by ear and keep adjusting it.": "Verifica cada resultado escuchándolo y sigue ajustándolo.",
   "Download the minted pack (97 MB)": "Descargar el minted pack (97 MB)",
   "Mix the minted pack in the AR stage": "Mezclar el minted pack en la etapa AR",
-  "No LoRA of the {stage} stage found in: {path}": "No hay ningún LoRA de la etapa {stage} en: {path}"
+  "No LoRA of the {stage} stage found in: {path}": "No hay ningún LoRA de la etapa {stage} en: {path}",
+  "Upload to Hugging Face": "Subir a Hugging Face",
+  "☁ Upload to Hugging Face": "☁ Subir a Hugging Face",
+  "Save a Hugging Face token with write access in the Hugging Face Token panel first.": "Primero guarda un token de Hugging Face con permiso de escritura en el panel Hugging Face Token.",
+  "Private repo (when it is created)": "Repo privado (al crearlo)",
+  "Every LoRA the trainer saves from now on (checkpoints and final) goes up to the repo by itself. Older ones: use the ☁ button.": "Cada LoRA que guarde el entrenador a partir de ahora (checkpoints y final) se sube solo al repo. Los anteriores: usa el botón ☁.",
+  "Upload new LoRAs automatically": "Subir los LoRAs nuevos automáticamente",
+  "Write the repo (user/name) to upload automatically.": "Escribe el repo (usuario/nombre) para subir automáticamente.",
+  "Write the repo (user/name) first.": "Escribe primero el repo (usuario/nombre).",
+  "Uploaded to Hugging Face": "Subido a Hugging Face",
+  "No Hugging Face token: save a token with write access first.": "No hay token de Hugging Face: guarda antes un token con permiso de escritura.",
+  "The repo must look like user/name.": "El repo tiene que ser del tipo usuario/nombre.",
+  "Upload of {name} failed: {error}": "Falló la subida de {name}: {error}",
+  "Uploaded {name}": "Subido {name}",
+  "File not found": "Archivo no encontrado"
 }

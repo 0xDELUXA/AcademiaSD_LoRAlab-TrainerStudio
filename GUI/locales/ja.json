@@ -1154,5 +1154,19 @@
   "Fibo 2.0 is not published in NF4. Build it once with:": "Fibo 2.0 は NF4 では公開されていません。一度だけ次で作成してください:",
   "It reads the diffusers folder Fibo2_Dev-Raw and writes Fibo2_Dev-NF4.": "diffusers フォルダ Fibo2_Dev-Raw を読み取り、Fibo2_Dev-NF4 を書き出します。",
   "Fonts not found in {path}: the texts of the caption will be drawn with the default font.": "{path} にフォントが見つかりません: caption のテキストは既定のフォントで描画されます。",
-  "ON ({n} steps)": "ON ({n} ステップ)"
+  "ON ({n} steps)": "ON ({n} ステップ)",
+  "Upload to Hugging Face": "Hugging Face にアップロード",
+  "☁ Upload to Hugging Face": "☁ Hugging Face にアップロード",
+  "Save a Hugging Face token with write access in the Hugging Face Token panel first.": "先に Hugging Face Token パネルで書き込み権限のある Hugging Face トークンを保存してください。",
+  "Private repo (when it is created)": "非公開リポジトリ (作成時)",
+  "Every LoRA the trainer saves from now on (checkpoints and final) goes up to the repo by itself. Older ones: use the ☁ button.": "これ以降トレーナーが保存する LoRA (チェックポイントと最終) は自動でリポジトリにアップロードされます。それ以前のものは ☁ ボタンを使ってください。",
+  "Upload new LoRAs automatically": "新しい LoRA を自動でアップロード",
+  "Write the repo (user/name) to upload automatically.": "自動アップロードにはリポジトリ (ユーザー/名前) を入力してください。",
+  "Write the repo (user/name) first.": "先にリポジトリ (ユーザー/名前) を入力してください。",
+  "Uploaded to Hugging Face": "Hugging Face にアップロードしました",
+  "No Hugging Face token: save a token with write access first.": "Hugging Face トークンがありません: 先に書き込み権限のあるトークンを保存してください。",
+  "The repo must look like user/name.": "リポジトリは ユーザー/名前 の形式にしてください。",
+  "Upload of {name} failed: {error}": "{name} のアップロードに失敗しました: {error}",
+  "Uploaded {name}": "{name} をアップロードしました",
+  "File not found": "ファイルが見つかりません"
 }
