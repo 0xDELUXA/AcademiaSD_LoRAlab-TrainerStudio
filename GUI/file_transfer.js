@@ -165,18 +165,76 @@ async function ftDownload() {
         box.onclick = e => { if (e.target === box) box.remove(); };
         document.body.appendChild(box);
     }
+    const hf = await (await fetch('/api/hf-upload-settings')).json();
     const rows = data.files.length
-        ? data.files.map(f => `<a href="/api/download-output/${encodeURIComponent(f.name)}?final_name=${encodeURIComponent(finalName)}" download
-              style="display:flex;justify-content:space-between;align-items:center;gap:16px;padding:8px 10px;border-radius:6px;color:var(--text-main);text-decoration:none;background:var(--bg-dark);border:1px solid var(--panel-border);min-width:0;">
-              <span title="${ftEscape(f.download_name || f.name)}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">⬇ ${ftEscape(f.download_name || f.name)}</span><span style="flex:0 0 auto;white-space:nowrap;color:var(--text-muted);">${(f.size / 1048576).toFixed(1)} MB</span></a>`).join('')
+        ? data.files.map(f => `<div style="display:flex;gap:6px;align-items:stretch;min-width:0;">
+            <a href="/api/download-output/${encodeURIComponent(f.name)}?final_name=${encodeURIComponent(finalName)}" download
+              style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:8px 10px;border-radius:6px;color:var(--text-main);text-decoration:none;background:var(--bg-dark);border:1px solid var(--panel-border);min-width:0;">
+              <span title="${ftEscape(f.download_name || f.name)}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">⬇ ${ftEscape(f.download_name || f.name)}</span><span style="flex:0 0 auto;white-space:nowrap;color:var(--text-muted);">${(f.size / 1048576).toFixed(1)} MB</span></a>
+            <button type="button" class="btn btn-secondary btn-sm" data-name="${ftEscape(f.name)}" onclick="ftHfUpload(this)"
+                    title="${t('Upload to Hugging Face')}" style="flex:0 0 auto;">☁</button></div>`).join('')
         : `<div style="color:var(--text-muted);">${t('No LoRA yet.')}</div>`;
     box.innerHTML = `<div style="width:min(560px,92vw);max-height:80vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:20px;
             background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:12px;">
         <div style="font-weight:700;">${t('⬇ Download LoRA')}</div>
         <div style="font-size:0.78rem;color:var(--text-muted);word-break:break-all;">${ftEscape(data.path)}</div>
         ${rows}
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;padding-top:10px;border-top:1px solid var(--panel-border);">
+            <div style="font-weight:700;">${t('☁ Upload to Hugging Face')}</div>
+            ${hf.has_token ? '' : `<div style="font-size:0.78rem;color:var(--warning);">${t('Save a Hugging Face token with write access in the Hugging Face Token panel first.')}</div>`}
+            <input type="text" id="ft-hf-repo" value="${ftEscape(hf.repo)}" placeholder="user/my-loras" autocomplete="off" onchange="ftHfSave()">
+            <label style="display:flex;gap:6px;align-items:center;font-size:0.85rem;"><input type="checkbox" id="ft-hf-private" ${hf.private ? 'checked' : ''} onchange="ftHfSave()"> ${t('Private repo (when it is created)')}</label>
+            <label style="display:flex;gap:6px;align-items:center;font-size:0.85rem;" title="${t('Every LoRA the trainer saves from now on (checkpoints and final) goes up to the repo by itself. Older ones: use the ☁ button.')}">
+                <input type="checkbox" id="ft-hf-auto" ${hf.auto ? 'checked' : ''} onchange="ftHfSave()"> ${t('Upload new LoRAs automatically')}</label>
+            ${hf.last ? `<div style="font-size:0.78rem;color:var(--text-muted);word-break:break-all;">${ftEscape(hf.last)}</div>` : ''}
+        </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('ft-modal').remove()">${t('Close')}</button>
     </div>`;
+}
+
+function ftHfFields() {
+    return {
+        repo: document.getElementById('ft-hf-repo').value.trim(),
+        private: document.getElementById('ft-hf-private').checked,
+        auto: document.getElementById('ft-hf-auto').checked,
+        final_name: (document.getElementById('export_final_name')?.value || '').trim(),
+    };
+}
+
+async function ftHfSave() {
+    const fields = ftHfFields();
+    const res = await fetch('/api/save-hf-upload-settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields)
+    });
+    const data = await res.json();
+    if (data.status !== 'ok') { toast(data.error || `HTTP ${res.status}`, 'error'); return; }
+    if (fields.auto && !data.auto) toast(t('Write the repo (user/name) to upload automatically.'), 'warning');
+    document.getElementById('ft-hf-auto').checked = data.auto;
+}
+
+// Un LoRA al repo; el botón muestra el progreso y, al acabar, abre el archivo en Hugging Face.
+// One LoRA to the repo; the button shows progress and, once done, links to the file on Hugging Face.
+async function ftHfUpload(btn) {
+    const fields = ftHfFields();
+    if (!fields.repo) { toast(t('Write the repo (user/name) first.'), 'warning'); return; }
+    btn.disabled = true;
+    btn.innerText = '…';
+    try {
+        const res = await fetch('/api/hf-upload', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...fields, name: btn.dataset.name })
+        });
+        const data = await res.json();
+        if (data.status !== 'ok') throw new Error(data.error || `HTTP ${res.status}`);
+        btn.innerText = '✓';
+        btn.onclick = () => window.open(data.url, '_blank');
+        btn.disabled = false;
+        toast(t('Uploaded to Hugging Face'), 'success');
+    } catch (err) {
+        btn.innerText = '☁';
+        btn.disabled = false;
+        toast(String(err.message || err), 'error');
+    }
 }
 
 // Arrastrar archivos o un .zip sobre el Dataset Manager los sube a la carpeta del dataset.

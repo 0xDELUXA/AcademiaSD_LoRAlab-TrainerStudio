@@ -1154,5 +1154,19 @@
   "Fibo 2.0 is not published in NF4. Build it once with:": "Fibo 2.0 ist nicht in NF4 veröffentlicht. Einmalig bauen mit:",
   "It reads the diffusers folder Fibo2_Dev-Raw and writes Fibo2_Dev-NF4.": "Es liest den Diffusers-Ordner Fibo2_Dev-Raw und schreibt Fibo2_Dev-NF4.",
   "Fonts not found in {path}: the texts of the caption will be drawn with the default font.": "Schriften in {path} nicht gefunden: die Texte des Captions werden mit der Standardschrift gezeichnet.",
-  "ON ({n} steps)": "ON ({n} Schritte)"
+  "ON ({n} steps)": "ON ({n} Schritte)",
+  "Upload to Hugging Face": "Auf Hugging Face hochladen",
+  "☁ Upload to Hugging Face": "☁ Auf Hugging Face hochladen",
+  "Save a Hugging Face token with write access in the Hugging Face Token panel first.": "Speichere zuerst im Panel Hugging Face Token ein Hugging-Face-Token mit Schreibrechten.",
+  "Private repo (when it is created)": "Privates Repo (beim Anlegen)",
+  "Every LoRA the trainer saves from now on (checkpoints and final) goes up to the repo by itself. Older ones: use the ☁ button.": "Jedes LoRA, das der Trainer ab jetzt speichert (Checkpoints und final), wird automatisch ins Repo hochgeladen. Ältere: nutze den ☁-Button.",
+  "Upload new LoRAs automatically": "Neue LoRAs automatisch hochladen",
+  "Write the repo (user/name) to upload automatically.": "Gib das Repo (benutzer/name) ein, um automatisch hochzuladen.",
+  "Write the repo (user/name) first.": "Gib zuerst das Repo (benutzer/name) ein.",
+  "Uploaded to Hugging Face": "Auf Hugging Face hochgeladen",
+  "No Hugging Face token: save a token with write access first.": "Kein Hugging-Face-Token: speichere zuerst ein Token mit Schreibrechten.",
+  "The repo must look like user/name.": "Das Repo muss die Form benutzer/name haben.",
+  "Upload of {name} failed: {error}": "Hochladen von {name} fehlgeschlagen: {error}",
+  "Uploaded {name}": "{name} hochgeladen",
+  "File not found": "Datei nicht gefunden"
 }

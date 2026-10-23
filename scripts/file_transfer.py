@@ -6,10 +6,18 @@ Upload the dataset and download the LoRAs from the browser.
 Hace falta cuando el entrenador no está en el PC que tiene el navegador: acceso remoto, RunPod.
 Los archivos sueltos o el contenido de un .zip van a la carpeta del dataset sin subcarpetas; solo se
 aceptan las extensiones del dataset y .txt, y cada nombre se comprueba contra la carpeta destino.
+
+Los LoRAs también se pueden subir a un repo de Hugging Face (token con permiso de escritura), a mano
+desde el diálogo de descarga o solos según se guardan (Colab, RunPod: no se pierden al cerrar).
+The LoRAs can also go to a Hugging Face repo (write token), by hand from the download dialog or on
+their own as they are saved (Colab, RunPod: nothing is lost when the machine goes away).
 """
 import json
+import os
 import re
 import struct
+import threading
+import time
 import zipfile
 from pathlib import Path, PurePath
 
@@ -23,6 +31,51 @@ GUI_DIR = Path(__file__).resolve().parent.parent / "GUI"
 # the edit-dataset preview images uploaded over HTTP: never inside the dataset, or training
 # would take them for edit pairs.
 PREVIEW_EDIT_DIR = GUI_DIR.parent / "preview_edit_images"
+SETTINGS_DIR = GUI_DIR.parent / "settings"
+HF_TOKEN_FILE = SETTINGS_DIR / "HF_token.json"
+# Compartido por todos los entrenadores: {"repo", "private", "auto", "auto_since", "final_name", "uploaded"}.
+# Shared by every trainer.
+HF_UPLOAD_FILE = SETTINGS_DIR / "hf_upload.json"
+HF_AUTO_INTERVAL = 30   # s entre vistazos a la carpeta de salida / s between looks at the output folder
+_hf_lock = threading.Lock()
+
+
+def _read_json(path):
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_json(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _hf_token():
+    """El de la GUI (settings/HF_token.json) o, si está vacío, HF_TOKEN del entorno (Docker / RunPod)."""
+    return (_read_json(HF_TOKEN_FILE).get("token") or "").strip() or os.environ.get("HF_TOKEN", "").strip()
+
+
+def _hf_upload(path, path_in_repo, repo, private):
+    """Sube un LoRA a repo (lo crea si no existe) y devuelve la URL del archivo. Un solo envío a la vez."""
+    token = _hf_token()
+    if not token:
+        raise RuntimeError(t("No Hugging Face token: save a token with write access first."))
+    from huggingface_hub import HfApi
+    api = HfApi(token=token)
+    with _hf_lock:
+        api.create_repo(repo, repo_type="model", private=bool(private), exist_ok=True)
+        api.upload_file(path_or_fileobj=str(path), path_in_repo=path_in_repo, repo_id=repo,
+                        repo_type="model", commit_message=f"Upload {path_in_repo} (LoRAlab Trainer Studio)")
+    return f"https://huggingface.co/{repo}/blob/main/{path_in_repo}"
+
+
+def _valid_repo(repo):
+    return bool(re.fullmatch(r"[\w.-]+/[\w.-]+", repo or ""))
 
 
 def _target(folder, name):
@@ -188,3 +241,90 @@ def register(app, get_dataset_dir, get_output_dir, dataset_exts):
             abort(404)
         final_name = PurePath(request.args.get("final_name") or "").name.strip()
         return send_file(dest, as_attachment=True, download_name=download_name(dest, final_name))
+
+    # --- Hugging Face ---------------------------------------------------------------
+    hf_state = {"last": "", "pending": {}}
+
+    def mark_uploaded(f, mtime):
+        cfg = _read_json(HF_UPLOAD_FILE)
+        cfg.setdefault("uploaded", {})[str(f.resolve())] = mtime
+        _write_json(HF_UPLOAD_FILE, cfg)
+
+    @app.route("/api/hf-upload-settings", methods=["GET"])
+    def hf_upload_settings():
+        cfg = _read_json(HF_UPLOAD_FILE)
+        return jsonify({"repo": cfg.get("repo", ""), "private": cfg.get("private", True),
+                        "auto": bool(cfg.get("auto")), "has_token": bool(_hf_token()), "last": hf_state["last"]})
+
+    @app.route("/api/save-hf-upload-settings", methods=["POST"])
+    def save_hf_upload_settings():
+        req = request.get_json(force=True) or {}
+        repo = str(req.get("repo", "")).strip()
+        if repo and not _valid_repo(repo):
+            return jsonify({"status": "error", "error": t("The repo must look like user/name.")}), 400
+        cfg = _read_json(HF_UPLOAD_FILE)
+        auto = bool(req.get("auto")) and bool(repo)
+        # Solo se suben solos los LoRAs guardados desde que se activa: los de antes, a mano.
+        # Only LoRAs saved after it is switched on go up by themselves: older ones, by hand.
+        if auto and not cfg.get("auto"):
+            cfg["auto_since"] = time.time()
+        cfg.update({"repo": repo, "private": bool(req.get("private", True)), "auto": auto,
+                    "final_name": PurePath(str(req.get("final_name") or "")).name.strip()})
+        _write_json(HF_UPLOAD_FILE, cfg)
+        return jsonify({"status": "ok", "auto": auto})
+
+    @app.route("/api/hf-upload", methods=["POST"])
+    def hf_upload():
+        req = request.get_json(force=True) or {}
+        dest = _target(get_output_dir(), str(req.get("name", "")))
+        if dest is None or dest.suffix.lower() != ".safetensors" or not dest.is_file():
+            return jsonify({"status": "error", "error": t("File not found")}), 404
+        cfg = _read_json(HF_UPLOAD_FILE)
+        repo = str(req.get("repo") or cfg.get("repo", "")).strip()
+        if not _valid_repo(repo):
+            return jsonify({"status": "error", "error": t("The repo must look like user/name.")}), 400
+        final_name = PurePath(str(req.get("final_name") or "")).name.strip()
+        mtime = dest.stat().st_mtime
+        try:
+            url = _hf_upload(dest, download_name(dest, final_name), repo, req.get("private", cfg.get("private", True)))
+        except Exception as exc:
+            return jsonify({"status": "error", "error": str(exc)}), 500
+        mark_uploaded(dest, mtime)
+        return jsonify({"status": "ok", "url": url})
+
+    def hf_auto_pass():
+        cfg = _read_json(HF_UPLOAD_FILE)
+        folder = get_output_dir()
+        if not cfg.get("auto") or not _valid_repo(cfg.get("repo")) or not folder.is_dir():
+            return
+        uploaded, pending = cfg.get("uploaded", {}), hf_state["pending"]
+        for f in sorted(folder.glob("*.safetensors"), key=lambda p: p.stat().st_mtime):
+            st, key = f.stat(), str(f.resolve())
+            if st.st_mtime < cfg.get("auto_since", 0) or uploaded.get(key) == st.st_mtime:
+                continue
+            # Igual que en el vistazo anterior y con 10 s de calma: el entrenador ya no lo está escribiendo.
+            # Same as on the previous look and quiet for 10 s: the trainer is no longer writing it.
+            if pending.get(key) != (st.st_size, st.st_mtime) or time.time() - st.st_mtime < 10:
+                pending[key] = (st.st_size, st.st_mtime)
+                continue
+            name = download_name(f, cfg.get("final_name", ""))
+            try:
+                url = _hf_upload(f, name, cfg["repo"], cfg.get("private", True))
+            except Exception as exc:
+                hf_state["last"] = t("Upload of {name} failed: {error}", name=name, error=exc)
+                print("[HF] " + hf_state["last"])
+                return   # se reintenta en el siguiente vistazo / retried on the next look
+            pending.pop(key, None)
+            mark_uploaded(f, st.st_mtime)
+            hf_state["last"] = t("Uploaded {name}", name=name)
+            print(f"[HF] {hf_state['last']}: {url}")
+
+    def hf_auto_loop():
+        while True:
+            time.sleep(HF_AUTO_INTERVAL)
+            try:
+                hf_auto_pass()
+            except Exception as exc:
+                print(f"[HF] {exc}")
+
+    threading.Thread(target=hf_auto_loop, name="hf-auto-upload", daemon=True).start()
